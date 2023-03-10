@@ -1,0 +1,6 @@
+float64 dist
+---
+string mask
+string chest
+string leg
+float64 height
