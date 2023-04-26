@@ -10,7 +10,6 @@ import rospkg
 import fnmatch
 import cv2
 import time
-import face_recognition
 from cv_bridge import CvBridge, CvBridgeError
 from hera_face.srv import face_list
 import dlib
@@ -33,7 +32,7 @@ class FaceRecog():
 
         self.bridge_object = CvBridge()
         rospy.loginfo("Start camera suscriber...")
-        self.topic = "/usb_cam/image_raw"
+        self.topic = "/zed2i/zed_node/left_raw/image_raw_color"
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
@@ -54,10 +53,10 @@ class FaceRecog():
     def recognise(self, data, nome_main):
 
         detector = dlib.get_frontal_face_detector()
-        sp = dlib.shape_predictor("/home/robofei/catkin_hera/src/3rdParty/vision_system/hera_face/src/shape_predictor_5_face_landmarks.dat")
-        model  = dlib.face_recognition_model_v1("/home/robofei/catkin_hera/src/3rdParty/vision_system/hera_face/src/dlib_face_recognition_resnet_model_v1.dat")
+        sp = dlib.shape_predictor("/home/robofei/Workspace/catkin_ws/src/3rd_party/Vision_System/hera_face/hera_people_recog/src/shape_predictor_5_face_landmarks.dat")
+        model  = dlib.face_recognition_model_v1("/home/robofei/Workspace/catkin_ws/src/3rd_party/Vision_System/hera_face/hera_people_recog/src/dlib_face_recognition_resnet_model_v1.dat")
 
-        self.people_dir = '/home/robofei/catkin_hera/src/3rdParty/vision_system/hera_face/face_images/'
+        self.people_dir = '//home/robofei/Workspace/catkin_ws/src/3rd_party/Vision_System/hera_face/hera_people_recog/face_images/'
 
         files = fnmatch.filter(os.listdir(self.people_dir), '*.jpg')
 
@@ -132,7 +131,7 @@ class FaceRecog():
             
             window = dlib.image_window()
             window.set_image(small_frame)
-            cv2.imwrite('/home/robofei/catkin_hera/src/3rdParty/vision_system/hera_face/face_recogs/recog.jpg', small_frame)
+            cv2.imwrite('/home/robofei/Workspace/catkin_ws/src/3rd_party/Vision_System/hera_face/hera_people_recog/face_recogs/recog.jpg', small_frame)
             #k = cv2.waitKey(0)
             #if k == 27:         # wait for ESC key to exit    cv2.destroyAllWindows()
             #    cv2.destroyAllWindows()
