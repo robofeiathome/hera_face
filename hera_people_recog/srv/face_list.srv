@@ -1,4 +1,5 @@
 string name
+string place
 ---
 string result
 float64 center

@@ -17,9 +17,7 @@ import numpy as np
 
 class FaceRecog():
     # cuidado para nao ter imagem com tamanhos diferentes ou cameras diferentes, pois o reconhecimento nao vai funcionar
-
     recog = 0
-
     def __init__(self):
         rospy.Service('face_recog', face_list, self.handler)
         
@@ -29,12 +27,11 @@ class FaceRecog():
         rospack = rospkg.RosPack()
         # get the file path for my_face_recogniser
         self.path_to_package = rospack.get_path('hera_face')
-
         self.bridge_object = CvBridge()
         rospy.loginfo("Start camera suscriber...")
         self.topic = "/zed2i/zed_node/left_raw/image_raw_color"
-        self._check_cam_ready()
-        self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
+        #self._check_cam_ready()
+        #self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
 
     def _check_cam_ready(self):
@@ -50,14 +47,14 @@ class FaceRecog():
     def camera_callback(self,data):
         self.cam_image = data
 
-    def recognise(self, data, nome_main):
+    def recognize(self, data, nome_main, place):
+        place = False if place == '' else True
 
         detector = dlib.get_frontal_face_detector()
-        sp = dlib.shape_predictor("/home/robofei/Workspace/catkin_ws/src/3rd_party/Vision_System/hera_face/hera_people_recog/src/shape_predictor_5_face_landmarks.dat")
-        model  = dlib.face_recognition_model_v1("/home/robofei/Workspace/catkin_ws/src/3rd_party/Vision_System/hera_face/hera_people_recog/src/dlib_face_recognition_resnet_model_v1.dat")
-
-        self.people_dir = '//home/robofei/Workspace/catkin_ws/src/3rd_party/Vision_System/hera_face/hera_people_recog/face_images/'
-
+        sp = dlib.shape_predictor(self.path_to_package+ "/src/shape_predictor_5_face_landmarks.dat")
+        model  = dlib.face_recognition_model_v1(self.path_to_package+"/src/dlib_face_recognition_resnet_model_v1.dat")
+        self.people_dir = self.path_to_package+'/face_images/'
+        print(self.people_dir)
         files = fnmatch.filter(os.listdir(self.people_dir), '*.jpg')
 
         known_face = []
@@ -77,9 +74,10 @@ class FaceRecog():
                     rospy.loginfo("No face detected in image: " + files[f])
                     break
 
-        small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
+        #small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
+        small_frame = cv2.imread(self.path_to_package+'/src/notcrop.jpg')
         time.sleep(1)   
-    # Get a reference to webcam #0 (the default one)
+        # Get a reference to webcam #0 (the default one)
         # We select bgr8 because its the OpneCV encoding by default
     
         # robot vision
@@ -93,16 +91,12 @@ class FaceRecog():
         else:
             print("Face Detectada", img_detected)
             faces = dlib.full_object_detections()
-            
-
             for detection in img_detected:
                 faces.append(sp(small_frame, detection))
             
             align_img = dlib.get_face_chips(small_frame, faces)                    
             img_rep = np.array(model.compute_face_descriptor(align_img))
-
         #--------------------------------------------------------------------------------
-    
             for i in range(0, len(img_detected)):
                 name = 'Face'
                 for k in range(0, len(known_face)):      
@@ -112,13 +106,10 @@ class FaceRecog():
                         name = known_name[fst]
                     else:
                         continue
-                    
+                 
                 face_name.insert(i, name)
-
-            #--------------------------------------------------------------------------
-
+        #--------------------------------------------------------------------------
             for i, rects in enumerate(img_detected):
-
                 if face_name[i] in known_name:
                     cv2.rectangle(small_frame, (rects.left(), rects.top()), (rects.right(), rects.bottom()), (0, 255, 0), 2)
                     cv2.putText(small_frame, face_name[i], (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
@@ -131,68 +122,82 @@ class FaceRecog():
             
             window = dlib.image_window()
             window.set_image(small_frame)
-            cv2.imwrite('/home/robofei/Workspace/catkin_ws/src/3rd_party/Vision_System/hera_face/hera_people_recog/face_recogs/recog.jpg', small_frame)
-            #k = cv2.waitKey(0)
-            #if k == 27:         # wait for ESC key to exit    cv2.destroyAllWindows()
-            #    cv2.destroyAllWindows()
-            face_names_str = " - ".join(face_name)
-            # transformar o center_x em float 
+            cv2.imwrite(self.path_to_package+'/face_recogs/recog.jpg', small_frame)
 
-            # self.recog = 1
-            print("Face Recognised: ", face_name)
+            print("Face Recognized: ", face_name)
             print("Face centers: ", face_center)
             print("Pessoas na foto: ", len(img_detected))
+            if place:
+                h, w, _= small_frame.shape
+                first_line = 734
+                second_line = 1039
+                third_line = 1274
+                fourth_line = 1544
+                last_line = 1844
 
+                cv2.line(small_frame, (second_line, 0), (second_line, h), (0,0,255), thickness=2)
+                cv2.line(small_frame, (first_line, 0), (first_line, h), (0,0,255), thickness=2)
+                cv2.line(small_frame, (third_line, 0), (third_line, h), (0,0,255), thickness=2)
+                cv2.line(small_frame, (fourth_line, 0), (fourth_line, h), (0,0,255), thickness=2)
+                cv2.line(small_frame, (last_line, 0), (last_line, h), (0,0,255), thickness=2)
+            
+                places = [False, False, False, False]
+                for i, rects in enumerate(img_detected):
+                    if first_line < face_center[i] < second_line:
+                        places[0] = True
+                    elif second_line < face_center[i] < third_line:
+                        places[1] = True
+                    elif third_line < face_center[i] < fourth_line:
+                        places[2] = True
+                    elif fourth_line < face_center[i] < last_line:
+                        places[3] = True
+                    else:
+                        print('All places are empty')
+
+                empty_place = places.index(False)
+                print(places)
+                print(empty_place)
+                    
+                    
+#                cv2.imwrite(self.path_to_package+'/face_recogs/crop.jpg', small_frame)
             #---------------------------------------------------------------------
             if nome_main == '':
                 name = 'face'
                 center = '0.0'
                 self.recog = 1
-                return name, center, len(img_detected)
-
             elif nome_main in face_name:
                 center = face_center[face_name.index(nome_main)]
                 name = face_name[face_name.index(nome_main)]
                 print("Pessoa encontrada")
                 self.recog = 1
-                return name, center, len(img_detected)
             else:
                 self.recog = 0
                 name = 'face'
                 center = '0.0'
-                return name, center, len(img_detected)
+            return name, center, len(img_detected)
 
     def handler(self, request):
         self.recog = 0
-        recog_request = 0
-
         if request.name == '':
-
             while self.recog == 0:
                 self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
                 
-                name, center, num = self.recognise(self.cam_image, request.name)
+                name, center, num = self.recognize(0, request.name, request.place)
                 self.rate.sleep()
-                
-
+            
                 return name, float(center), num
-
         else:
-            # retornar somente o nome da pessoa e a posciao em center_x
+            # retornar somente o nome da pessoa e a posicao em center_x
             while self.recog == 0:
-                
                 self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
                 
-                name, center, num = self.recognise(self.cam_image, request.name)
+                name, center, num = self.recognize(0, request.name, request.place)#self.cam_image
                 self.rate.sleep()
-                
-
+        
                 return name, float(center), num
 
         cv2.destroyAllWindows()
-        
-
-
+    
 if __name__ == '__main__':
     rospy.init_node('face_recog', log_level=rospy.INFO)
     FaceRecog()
