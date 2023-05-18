@@ -4,3 +4,4 @@ string place
 string result
 float64 center
 int64 num
+int64 empty_place
