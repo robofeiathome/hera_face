@@ -29,7 +29,7 @@ class FaceRecog():
         self.path_to_package = rospack.get_path('hera_face')
         self.bridge_object = CvBridge()
         rospy.loginfo("Start camera suscriber...")
-        self.topic = "/zed2i/zed_node/left_raw/image_raw_color"
+        self.topic = "/zed_node/left_raw/image_raw_color"
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
         self.load_data()
@@ -71,9 +71,8 @@ class FaceRecog():
     def camera_callback(self,data):
         self.cam_image = data
 
-    def recognize(self, data, nome_main, place):
+    def recognize(self, data, nome_main):
         #Set parameters to use or not empty place
-        place = False if place == '' else True
         empty_place = 404
 
         #Get image from topic
@@ -86,14 +85,14 @@ class FaceRecog():
         #Check if there are people
         if len(img_detected) == 0:
             rospy.loginfo("No face detected")
-            return '', 0.0, len(img_detected)
+            return '', 0.0, len(img_detected), 404
         else:
             print("Face Detectada", img_detected)
             faces = dlib.full_object_detections()
             for detection in img_detected:
                 faces.append(self.sp(small_frame, detection))
             align_img = dlib.get_face_chips(small_frame, faces)                    
-            img_rep = np.array(model.compute_face_descriptor(align_img))
+            img_rep = np.array(self.model.compute_face_descriptor(align_img))
         #--------------------------------------------------------------------------------
         #Match known faces with current faces
             for i in range(0, len(img_detected)):
@@ -128,35 +127,32 @@ class FaceRecog():
             print("People in the photo: ", len(img_detected))
         #--------------------------------------------------------------------------
         #Empty place
-            if place:
-                h, _, _= small_frame.shape
-                first_line = 734
-                second_line = 1039
-                third_line = 1274
-                fourth_line = 1544
-                last_line = 1844
-        #Split the frame into the chair areas
-                cv2.line(small_frame, (second_line, 0), (second_line, h), (0,0,255), thickness=2)
-                cv2.line(small_frame, (first_line, 0), (first_line, h), (0,0,255), thickness=2)
-                cv2.line(small_frame, (third_line, 0), (third_line, h), (0,0,255), thickness=2)
-                cv2.line(small_frame, (fourth_line, 0), (fourth_line, h), (0,0,255), thickness=2)
-                cv2.line(small_frame, (last_line, 0), (last_line, h), (0,0,255), thickness=2)
-        #Check if person inside the areas    
-                places = [False, False, False, False]
-                for i, rects in enumerate(img_detected):
-                    if first_line < face_center[i] < second_line:
-                        places[0] = True
-                    elif second_line < face_center[i] < third_line:
-                        places[1] = True
+            h, _, _= small_frame.shape
+            first_line = 340
+            second_line = 520
+            third_line = 610
+            fourth_line = 770
+            last_line = 930
+    #Split the frame into the chair areas
+            cv2.line(small_frame, (second_line, 0), (second_line, h), (0,0,255), thickness=2)
+            cv2.line(small_frame, (first_line, 0), (first_line, h), (0,0,255), thickness=2)
+            cv2.line(small_frame, (third_line, 0), (third_line, h), (0,0,255), thickness=2)
+            cv2.line(small_frame, (fourth_line, 0), (fourth_line, h), (0,0,255), thickness=2)
+            cv2.line(small_frame, (last_line, 0), (last_line, h), (0,0,255), thickness=2)
+    #Check if person inside the areas   
+            places = [False, False, False]
+            for i, rects in enumerate(img_detected):
+                if face_name[i] in self.known_name:
+                    if (first_line < face_center[i] < second_line):
+                        places[0] = True     
                     elif third_line < face_center[i] < fourth_line:
-                        places[2] = True
+                        places[1] = True
                     elif fourth_line < face_center[i] < last_line:
-                        places[3] = True
-                    else:
-                        print('All places are empty')
-        #Get the empty place using the index = false
-                empty_place = places.index(False)   
-                print("Firts empty place: ", empty_place)                 
+                        places[2] = True
+    #Get the empty place using the index = false
+            empty_place = places.index(False) if places.index(False) else empty_place
+            print("Firts empty place: ", empty_place)    
+            cv2.imwrite('notcrop.jpg', small_frame)             
         #---------------------------------------------------------------------
             if nome_main == '':
                 name = 'face'
@@ -178,12 +174,12 @@ class FaceRecog():
         while self.recog == 0:
             self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
             if request.name == '':
-                name, center, num, empty = self.recognize(self.cam_image, request.name, request.place)
+                name, center, num, empty = self.recognize(self.cam_image, request.name)
                 self.rate.sleep()
             
                 return name, float(center), num, empty
             else:
-                name, center, num , empty= self.recognize(self.cam_image, request.name, request.place)
+                name, center, num , empty = self.recognize(self.cam_image, request.name)
                 self.rate.sleep()
         
                 return name, float(center), num, empty
