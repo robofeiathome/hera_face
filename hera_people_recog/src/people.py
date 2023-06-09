@@ -52,7 +52,7 @@ class FaceRecog():
                 area = rects.top() * rects.left()
                 bouding_boxes.append(area)
             biggest_box = bouding_boxes.index(max(bouding_boxes)
-            img_shape = self.sp(img, img_detected[])
+            img_shape = self.sp(img, img_detected[biggest_box])
             align_img = dlib.get_face_chip(img, img_shape)
             img_rep = np.array(self.model.compute_face_descriptor(align_img))
             if len(img_detected) > 0:
