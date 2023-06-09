@@ -45,19 +45,23 @@ class FaceRecog():
         self.known_face = []
         self.known_name = []
         for f in range(0, len(files)):
-            for _ in range(0,100):
-                img = dlib.load_rgb_image(self.people_dir + files[f])
-                img_detected = self.detector(img, 1)
-                img_shape = self.sp(img, img_detected[0])
-                align_img = dlib.get_face_chip(img, img_shape)
-                img_rep = np.array(self.model.compute_face_descriptor(align_img))
-                if len(img_detected) > 0:
-                    self.known_face.append(img_rep)
-                    self.known_name.append(files[f].split('.')[0])
-                    break 
-                else:
-                    rospy.loginfo("No face detected in image: " + files[f])
-                    break
+            img = dlib.load_rgb_image(self.people_dir + files[f])
+            img_detected = self.detector(img, 1)
+            bouding_boxes = []
+            for i, rects in enumerate(img_detected):
+                area = rects.top() * rects.left()
+                bouding_boxes.append(area)
+            biggest_box = bouding_boxes.index(max(bouding_boxes)
+            img_shape = self.sp(img, img_detected[])
+            align_img = dlib.get_face_chip(img, img_shape)
+            img_rep = np.array(self.model.compute_face_descriptor(align_img))
+            if len(img_detected) > 0:
+                self.known_face.append(img_rep)
+                self.known_name.append(files[f].split('.')[0])
+                break 
+            else:
+                rospy.loginfo("No face detected in image: " + files[f])
+                break
 
     def _check_cam_ready(self):
       self.cam_image = None
