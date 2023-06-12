@@ -71,9 +71,7 @@ class FaceRecog():
             #SPIN
             place = self.find_empty_place(boxes)
             pass
-
-        self.place = place
-            
+        self.place = place          
 
     def find_empty_place(self, boxes):
         place = False
@@ -107,8 +105,6 @@ class FaceRecog():
 
     def recognize(self, data, nome_main):
         self.load_data()
-        #Set parameters to use or not empty place
-
         #Get image from topic
         small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
         time.sleep(1)   
@@ -148,13 +144,12 @@ class FaceRecog():
                 else:
                     cv2.rectangle(small_frame, (rects.left(), rects.top()), (rects.right(), rects.bottom()), (255, 0, 0), 2)
                     cv2.putText(small_frame, self.face_name[i], (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-
                 center_x = (rects.right() + rects.left())/2
                 self.face_center.append(center_x)
             
             window = dlib.image_window()
             window.set_image(small_frame)
-            # cv2.imwrite(self.path_to_package+'/face_recogs/recog.jpg', small_frame)
+            cv2.imwrite(self.path_to_package+'/face_recogs/recog.jpg', small_frame)
 
             print("Face Recognized: ", self.face_name)
             print("Face centers: ", self.face_center)
@@ -188,15 +183,12 @@ class FaceRecog():
             self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
             name, center, num, empty = self.recognize(self.cam_image, request.name)
             self.rate.sleep()
-        
             return name, float(center), num, empty
-
         cv2.destroyAllWindows()
     
 if __name__ == '__main__':
     rospy.init_node('face_recog', log_level=rospy.INFO)
     FaceRecog()
-
     try:
         rospy.spin()
     except rospy.ROSInterruptException:
