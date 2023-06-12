@@ -63,13 +63,20 @@ class FaceRecog():
                 rospy.loginfo("No face detected in image: " + files[f])
                 break
 
-    def find_empty_place(self, small_frame):
-        #Load model
+    def find_sit(self, small_frame):
+        place = False
         results = self.yolo.predict(source=small_frame, conf=0.7, device=0, classes=[56,57])
-        
-        #Boxes to msg
         boxes = results[0].boxes
-        self.self.places = [False, False, False]
+        while (not boxes.cls.index(56) or not boxes.cls.index(57)) and not place:
+            #SPIN
+            place = self.find_empty_place(boxes)
+            pass
+
+        self.place = place
+            
+
+    def find_empty_place(self, boxes):
+        place = False
         for i, c in enumerate(boxes.cls):
             box = boxes[i].xyxy[0]
             obj_class = self.yolo.names[int(c)]
@@ -77,17 +84,14 @@ class FaceRecog():
                 if self.face_name[i] in self.known_name:
                     if obj_class == 'chair':
                         if (box[0] < self.face_center[i] < box[2]):
-                            self.places[0] = True     
+                            place = True     
                     elif obj_class == 'couch':
                         media_x = (box[0] + box[2]) / 2
                         if (box[0] < self.face_center[i] < media_x):
-                            self.places[1] = True
+                            place = True
                         elif (media_x < self.face_center[i] < box[2]):
-                            self.places[2] = True
-
-            self.empty_place = self.places.index(False) if self.places.index(False) + 1 else self.empty_place
-            print("Firts empty place: ", self.empty_place)    
-            print("self.places: ", self.places)
+                            place = True
+        return place
 
     def _check_cam_ready(self):
       self.cam_image = None
@@ -104,7 +108,6 @@ class FaceRecog():
     def recognize(self, data, nome_main):
         self.load_data()
         #Set parameters to use or not empty place
-        self.empty_place = 404
 
         #Get image from topic
         small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
@@ -157,12 +160,17 @@ class FaceRecog():
             print("Face centers: ", self.face_center)
             print("People in the photo: ", len(img_detected))
         #--------------------------------------------------------------------------
-
-        #---------------------------------------------------------------------
             if nome_main == '':
-                name = 'face'
-                center = '0.0'
-                self.recog = 1
+                for i in self.known_name:
+                    if i in self.face_name:
+                        self.find_sit(small_frame)
+                        center = face_center[self.face_name.index(i)]
+                        name = self.face_name[self.face_name.index(i)]
+                        print("Pessoa conhecida encontrada")
+                    else:
+                        name = 'face'
+                        center = '0.0'
+                        self.recog = 1
             elif nome_main in self.face_name:
                 center = face_center[self.face_name.index(nome_main)]
                 name = self.face_name[self.face_name.index(nome_main)]
@@ -172,22 +180,16 @@ class FaceRecog():
                 self.recog = 0
                 name = 'face'
                 center = '0.0'
-            return name, center, len(img_detected), self.empty_place
+            return name, center, len(img_detected), self.place
 
     def handler(self, request):
         self.recog = 0
         while self.recog == 0:
             self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
-            if request.name == '':
-                name, center, num, empty = self.recognize(self.cam_image, request.name)
-                self.rate.sleep()
-            
-                return name, float(center), num, empty
-            else:
-                name, center, num , empty = self.recognize(self.cam_image, request.name)
-                self.rate.sleep()
+            name, center, num, empty = self.recognize(self.cam_image, request.name)
+            self.rate.sleep()
         
-                return name, float(center), num, empty
+            return name, float(center), num, empty
 
         cv2.destroyAllWindows()
     
