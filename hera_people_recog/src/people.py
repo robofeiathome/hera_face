@@ -32,7 +32,6 @@ class FaceRecog():
         self.topic = "/zed_node/left_raw/image_raw_color"
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
-        self.load_data()
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
 
     def load_data(self):
@@ -51,7 +50,7 @@ class FaceRecog():
             for i, rects in enumerate(img_detected):
                 area = rects.top() * rects.left()
                 bouding_boxes.append(area)
-            biggest_box = bouding_boxes.index(max(bouding_boxes)
+            biggest_box = bouding_boxes.index(max(bouding_boxes))
             img_shape = self.sp(img, img_detected[biggest_box])
             align_img = dlib.get_face_chip(img, img_shape)
             img_rep = np.array(self.model.compute_face_descriptor(align_img))
@@ -76,6 +75,7 @@ class FaceRecog():
         self.cam_image = data
 
     def recognize(self, data, nome_main):
+        self.load_data()
         #Set parameters to use or not empty place
         empty_place = 404
 
