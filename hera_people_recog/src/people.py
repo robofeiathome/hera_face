@@ -90,7 +90,7 @@ class FaceRecog():
                         elif (media_x < self.face_center[i] < box[2]):
                             place = True
         return place
-
+      
     def _check_cam_ready(self):
       self.cam_image = None
       while self.cam_image is None and not rospy.is_shutdown():
