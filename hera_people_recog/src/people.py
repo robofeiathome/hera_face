@@ -64,32 +64,28 @@ class FaceRecog():
                 break
 
     def find_sit(self, small_frame):
-        place = False
-        results = self.yolo.predict(source=small_frame, conf=0.7, device=0, classes=[56,57])
+        results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57])
         boxes = results[0].boxes
-        while (not boxes.cls.index(56) or not boxes.cls.index(57)) and not place:
-            #SPIN
-            place = self.find_empty_place(boxes)
-            pass
-        self.place = place          
+        while not self.find_empty_place(boxes):
+            #spin 
+            pass        
 
     def find_empty_place(self, boxes):
-        place = False
         for i, c in enumerate(boxes.cls):
             box = boxes[i].xyxy[0]
             obj_class = self.yolo.names[int(c)]
             for i in range(0, len(self.face_center)):
                 if self.face_name[i] in self.known_name:
-                    if obj_class == 'chair':
-                        if (box[0] < self.face_center[i] < box[2]):
-                            place = True     
+                    if obj_class == 'chair' and not (box[0] < self.face_center[i] < box[2]):
+                        self.center_place = (box[0] + box[2]) / 2
                     elif obj_class == 'couch':
                         media_x = (box[0] + box[2]) / 2
-                        if (box[0] < self.face_center[i] < media_x):
-                            place = True
-                        elif (media_x < self.face_center[i] < box[2]):
-                            place = True
-        return place
+                        if not (box[0] < self.face_center[i] < media_x):
+                            self.center_place = (box[0] + media_x) / 2
+                        elif not (media_x < self.face_center[i] < box[2]):
+                            self.center_place = (media_x + box) / 2
+                if self.center_place:
+                    return True
       
     def _check_cam_ready(self):
       self.cam_image = None
@@ -109,7 +105,7 @@ class FaceRecog():
         small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
         time.sleep(1)   
     
-        face_center = []
+        self.face_center = []
         self.face_name = []
         img_detected = self.detector(small_frame, 1)
         #Check if there are people
@@ -117,7 +113,6 @@ class FaceRecog():
             rospy.loginfo("No face detected")
             return '', 0.0, len(img_detected), 404
         else:
-            print("Face Detectada", img_detected)
             faces = dlib.full_object_detections()
             for detection in img_detected:
                 faces.append(self.sp(small_frame, detection))
@@ -155,27 +150,22 @@ class FaceRecog():
             print("Face centers: ", self.face_center)
             print("People in the photo: ", len(img_detected))
         #--------------------------------------------------------------------------
+            center = None
+            self.center_place  = None
             if nome_main == '':
-                for i in self.known_name:
-                    if i in self.face_name:
-                        self.find_sit(small_frame)
-                        center = face_center[self.face_name.index(i)]
-                        name = self.face_name[self.face_name.index(i)]
-                        print("Pessoa conhecida encontrada")
-                    else:
-                        name = 'face'
-                        center = '0.0'
-                        self.recog = 1
-            elif nome_main in self.face_name:
-                center = face_center[self.face_name.index(nome_main)]
-                name = self.face_name[self.face_name.index(nome_main)]
-                print("Pessoa encontrada")
-                self.recog = 1
-            else:
-                self.recog = 0
                 name = 'face'
                 center = '0.0'
-            return name, center, len(img_detected), self.place
+                self.recog = 1
+            else:
+                for name_known in self.known_name:  
+                    if name_known in self.face_name:
+                        self.find_sit(small_frame)
+                        center = self.face_center[self.face_name.index(name_known)]
+                        name = self.face_name[self.face_name.index(name_known)]
+                        print("Pessoa conhecida encontrada")
+                        print(self.center_place)
+                        self.recog = 1  
+            return name, center, len(img_detected), self.center_place
 
     def handler(self, request):
         self.recog = 0
