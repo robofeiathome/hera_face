@@ -12,6 +12,7 @@ import cv2
 import time
 from cv_bridge import CvBridge, CvBridgeError
 from hera_face.srv import face_list
+from ultralytics import YOLO
 import dlib
 import numpy as np
 
@@ -20,13 +21,13 @@ class FaceRecog():
     recog = 0
     def __init__(self):
         rospy.Service('face_recog', face_list, self.handler)
-        
         rospy.loginfo("Start FaceRecogniser Init process...")
         # get an instance of RosPack with the default search paths
         self.rate = rospy.Rate(5)
         rospack = rospkg.RosPack()
         # get the file path for my_face_recogniser
         self.path_to_package = rospack.get_path('hera_face')
+        self.yolo = YOLO(self.path_to_package+'/src/coco.pt')
         self.bridge_object = CvBridge()
         rospy.loginfo("Start camera suscriber...")
         self.topic = "/zed_node/left_raw/image_raw_color"
@@ -62,6 +63,34 @@ class FaceRecog():
                 rospy.loginfo("No face detected in image: " + files[f])
                 break
 
+    def find_sit(self, small_frame):
+        place = False
+        results = self.yolo.predict(source=small_frame, conf=0.7, device=0, classes=[56,57])
+        boxes = results[0].boxes
+        while (not boxes.cls.index(56) or not boxes.cls.index(57)) and not place:
+            #SPIN
+            place = self.find_empty_place(boxes)
+            pass
+        self.place = place          
+
+    def find_empty_place(self, boxes):
+        place = False
+        for i, c in enumerate(boxes.cls):
+            box = boxes[i].xyxy[0]
+            obj_class = self.yolo.names[int(c)]
+            for i in range(0, len(self.face_center)):
+                if self.face_name[i] in self.known_name:
+                    if obj_class == 'chair':
+                        if (box[0] < self.face_center[i] < box[2]):
+                            place = True     
+                    elif obj_class == 'couch':
+                        media_x = (box[0] + box[2]) / 2
+                        if (box[0] < self.face_center[i] < media_x):
+                            place = True
+                        elif (media_x < self.face_center[i] < box[2]):
+                            place = True
+        return place
+      
     def _check_cam_ready(self):
       self.cam_image = None
       while self.cam_image is None and not rospy.is_shutdown():
@@ -76,15 +105,12 @@ class FaceRecog():
 
     def recognize(self, data, nome_main):
         self.load_data()
-        #Set parameters to use or not empty place
-        empty_place = 404
-
         #Get image from topic
         small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
         time.sleep(1)   
     
         face_center = []
-        face_name = []
+        self.face_name = []
         img_detected = self.detector(small_frame, 1)
         #Check if there are people
         if len(img_detected) == 0:
@@ -108,93 +134,61 @@ class FaceRecog():
                         name = self.known_name[fst]
                     else:
                         continue
-                face_name.insert(i, name)
+                self.face_name.insert(i, name)
         #--------------------------------------------------------------------------
         #Plot boxes
             for i, rects in enumerate(img_detected):
-                if face_name[i] in self.known_name:
+                if self.face_name[i] in self.known_name:
                     cv2.rectangle(small_frame, (rects.left(), rects.top()), (rects.right(), rects.bottom()), (0, 255, 0), 2)
-                    cv2.putText(small_frame, face_name[i], (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                    cv2.putText(small_frame, self.face_name[i], (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
                 else:
                     cv2.rectangle(small_frame, (rects.left(), rects.top()), (rects.right(), rects.bottom()), (255, 0, 0), 2)
-                    cv2.putText(small_frame, face_name[i], (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-
+                    cv2.putText(small_frame, self.face_name[i], (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
                 center_x = (rects.right() + rects.left())/2
-                face_center.append(center_x)
+                self.face_center.append(center_x)
             
             window = dlib.image_window()
             window.set_image(small_frame)
-            # cv2.imwrite(self.path_to_package+'/face_recogs/recog.jpg', small_frame)
+            cv2.imwrite(self.path_to_package+'/face_recogs/recog.jpg', small_frame)
 
-            print("Face Recognized: ", face_name)
-            print("Face centers: ", face_center)
+            print("Face Recognized: ", self.face_name)
+            print("Face centers: ", self.face_center)
             print("People in the photo: ", len(img_detected))
         #--------------------------------------------------------------------------
-        #Empty place
-            h, _, _= small_frame.shape
-            first_line = 340
-            second_line = 520
-            third_line = 610
-            fourth_line = 820
-            last_line = 980
-    #Split the frame into the chair areas
-            cv2.line(small_frame, (second_line, 0), (second_line, h), (0,0,255), thickness=2)
-            cv2.line(small_frame, (first_line, 0), (first_line, h), (0,0,255), thickness=2)
-            cv2.line(small_frame, (third_line, 0), (third_line, h), (0,0,255), thickness=2)
-            cv2.line(small_frame, (fourth_line, 0), (fourth_line, h), (0,0,255), thickness=2)
-            cv2.line(small_frame, (last_line, 0), (last_line, h), (0,0,255), thickness=2)
-    #Check if person inside the areas   
-            places = [False, False, False]
-            for i, rects in enumerate(img_detected):
-                if face_name[i] in self.known_name:
-                    if (first_line < face_center[i] < second_line):
-                        places[0] = True     
-                    elif third_line < face_center[i] < fourth_line:
-                        places[1] = True
-                    elif fourth_line < face_center[i] < last_line:
-                        places[2] = True
-    #Get the empty place using the index = false
-            empty_place = places.index(False) if places.index(False) + 1 else empty_place
-            print("Firts empty place: ", empty_place)    
-            print("Places: ", places)
-            cv2.imwrite(self.path_to_package+'/face_recogs/recog.jpg', small_frame)          
-        #---------------------------------------------------------------------
             if nome_main == '':
-                name = 'face'
-                center = '0.0'
-                self.recog = 1
-            elif nome_main in face_name:
-                center = face_center[face_name.index(nome_main)]
-                name = face_name[face_name.index(nome_main)]
+                for i in self.known_name:
+                    if i in self.face_name:
+                        self.find_sit(small_frame)
+                        center = face_center[self.face_name.index(i)]
+                        name = self.face_name[self.face_name.index(i)]
+                        print("Pessoa conhecida encontrada")
+                    else:
+                        name = 'face'
+                        center = '0.0'
+                        self.recog = 1
+            elif nome_main in self.face_name:
+                center = face_center[self.face_name.index(nome_main)]
+                name = self.face_name[self.face_name.index(nome_main)]
                 print("Pessoa encontrada")
                 self.recog = 1
             else:
                 self.recog = 0
                 name = 'face'
                 center = '0.0'
-            return name, center, len(img_detected), empty_place
+            return name, center, len(img_detected), self.place
 
     def handler(self, request):
         self.recog = 0
         while self.recog == 0:
             self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
-            if request.name == '':
-                name, center, num, empty = self.recognize(self.cam_image, request.name)
-                self.rate.sleep()
-            
-                return name, float(center), num, empty
-            else:
-                name, center, num , empty = self.recognize(self.cam_image, request.name)
-                self.rate.sleep()
-        
-                return name, float(center), num, empty
-
+            name, center, num, empty = self.recognize(self.cam_image, request.name)
+            self.rate.sleep()
+            return name, float(center), num, empty
         cv2.destroyAllWindows()
     
 if __name__ == '__main__':
     rospy.init_node('face_recog', log_level=rospy.INFO)
     FaceRecog()
-
     try:
         rospy.spin()
     except rospy.ROSInterruptException:
