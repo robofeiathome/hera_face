@@ -1,6 +1,6 @@
 float64 dist
 ---
 string mask
-string chest
-string leg
+string shirt
+string pants
 float64 height

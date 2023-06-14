@@ -9,6 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 from tensorflow.keras.preprocessing.image import load_img
 from torchvision import transforms#, utils
 import cv2
+
 # import torch.optim as optim
 
 import numpy as np
@@ -20,7 +21,6 @@ from data_loader import ToTensor
 from data_loader import ToTensorLab
 from data_loader import SalObjDataset
 
-from model import U2NET # full size version 173.6 MB
 from model import U2NETP # small version u2net 4.7 MB
 
 # normalize the predicted SOD probability map

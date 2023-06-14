@@ -9,28 +9,36 @@ import os
 from colormap import rgb2hex
 from tensorflow.keras.preprocessing.image import load_img
 from tensorflow.keras.preprocessing.image import img_to_array
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+from tensorflow.keras.models import load_model
+import numpy as np
+import argparse
 from u2net_test import mask
 import glob
 import json
-from mask_detect import ifmask
-from height_estimate import height_estimate
-import time 
+from hera_face.srv import features
+from data_loader import RescaleT
+from data_loader import ToTensor
+from data_loader import ToTensorLab
+from data_loader import SalObjDataset
 
-class principal:
+from model import U2NETP # small version u2net 4.7 MB
 
-    def __init__(self,fr):
+
+class bonusFeatures:
+
+    def __init__(self):
+        rospy.Service('features', features, self.handler)
+
         self.point = None
         self.cint = None
         self.knee = None
         self.neck = None 
-        self.frame = fr
-        self.features(0.5)
+        self.topic = "/zed_node/left_raw/image_raw_color"
+        self.img_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
 
-
-    def creating_mask(self):
-        pf = glob.glob('/home/bibo/catkin_ws/src/hera_face/features_pkg/src/base/*')
-        img_path = pf[0]
-        output = mask(self.frame)
+    def creating_mask(self,frame):
+        output = mask(frame)
         output = load_img(output)
         RESCALE = 255
         out_img = img_to_array(output) / RESCALE
@@ -38,12 +46,10 @@ class principal:
         out_img[out_img > THRESHOLD] = 1
         out_img[out_img <= THRESHOLD] = 0
         shape = out_img.shape
-        #print("Shape: ", shape)
         a_layer_init = np.ones(shape=(shape[0], shape[1], 1))
         mul_layer = np.expand_dims(out_img[:, :, 0], axis=2)
         a_layer = mul_layer * a_layer_init
         rgba_out = np.append(out_img, a_layer, axis=2)
-
         
         original_image_path = img_path
         original_image = load_img(original_image_path)
@@ -52,11 +58,7 @@ class principal:
 
         # since the output image is rgba, convert this also to rgba, but with no transparency
         a_layer = np.ones(shape=(shape[0], shape[1], 1))
-        #print("Shape 1", a_layer.shape)
-        #print("Shape 2", inp_img.shape)
         rgba_inp = np.append(inp_img, a_layer, axis=2)
-        #print("Shape 3", rgba_inp.shape)
-        #print("Shape 4", rgba_out.shape)
         # simply multiply the 2 rgba images to remove the backgound
         rem_back = (rgba_inp * rgba_out)
         rem_back_scaled = Image.fromarray((rem_back * RESCALE).astype('uint8'), 'RGBA')
@@ -70,9 +72,33 @@ class principal:
         global starty
         starty = min(y_starts)
 
+    def height_estimate(self,distance, height):
+        height = 1280 - height
+        distance += 32
+        camera_image_height = 1.48 * distance
+        if height < 640:
+            subject_height = 640 - height
+            hf = 1.52 - (((subject_height*camera_image_height)/1280)/100)
+        else:
+            subject_height = height - 640
+            hf = (((subject_height*camera_image_height)/1280)/100) + 1.52
+        return hf
+
+    def ifmask(path):
+	        
+        model = load_model('/home/bibo/catkin_ws/src/hera_face/features_pkg/src/mask_detector.model')
+        openimage = cv2.imread(path)
+        image = cv2.resize(openimage,(224,224))
+        image = np.reshape(image,[1,224,224,3]) 
+        predict = model.predict(image)[0]
+
+        if predict[0] > predict[1]:
+            return "Mask"
+        else:
+            return "No Mask"
+	
     def pose_points(self,frame):
         null = 'null'
-        
         
         BODY_PARTS = {"Nose": 0, "Neck": 1, "RShoulder": 2, "RElbow": 3, "RWrist": 4,
                     "LShoulder": 5, "LElbow": 6, "LWrist": 7, "RHip": 8, "RKnee": 9,
@@ -90,8 +116,8 @@ class principal:
         #Load the dnn#
         net = cv2.dnn.readNetFromTensorflow("/home/bibo/catkin_ws/src/hera_face/features_pkg/src/graph_opt.pb")
 
-        frameWidth = self.frame.shape[1]
-        frameHeight = self.frame.shape[0]
+        frameWidth = frame.shape[1]
+        frameHeight = frame.shape[0]
 
         #Checks predictions and filters for 19 elements#
         net.setInput(
@@ -105,9 +131,6 @@ class principal:
         for i in range(len(BODY_PARTS)): #Checking each bodypart
             heatMap = out[0, i, :, :]
 
-            # Originally, we try to find all the local maximums. To simplify a sample
-            # we just find a global one. However only a single pose at the same time
-            # could be detected this way.
             _, conf, _, point = cv2.minMaxLoc(heatMap)
             x = (frameWidth * point[0]) / out.shape[3]
             y = (frameHeight * point[1]) / out.shape[2]
@@ -125,18 +148,18 @@ class principal:
 
             if points[idFrom] and points[idTo]:
                 cv2.line(frame, points[idFrom], points[idTo], (0, 255, 0), 3)
-                cv2.ellipse(self.frame, points[idFrom], (3, 3), 0, 0, 360, (0, 0, 255), cv2.FILLED)
-                cv2.ellipse(self.frame, points[idTo], (3, 3), 0, 0, 360, (0, 0, 255), cv2.FILLED)
+                cv2.ellipse(frame, points[idFrom], (3, 3), 0, 0, 360, (0, 0, 255), cv2.FILLED)
+                cv2.ellipse(frame, points[idTo], (3, 3), 0, 0, 360, (0, 0, 255), cv2.FILLED)
 
             t, _ = net.getPerfProfile()
             freq = cv2.getTickFrequency() / 1000
-            lx = cv2.putText(self.frame, '%.2fms' % (t / freq), (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
+            lx = cv2.putText(frame, '%.2fms' % (t / freq), (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
             cv2.imwrite('results/pose_points.png', lx)
             with open('points.json', 'w') as f:
                 json.dump(points, f)
-
             break
-        self.creating_mask()
+
+        self.creating_mask(frame)
 
         with open('points.json', 'r') as f:
             self.point = json.load(f)
@@ -165,9 +188,8 @@ class principal:
                 if self.point[11][1] != null:
                     self.cint = self.point[11][1]+25
             except:
-                self.cint = (self.frame.shape[1]/12)*7
+                self.cint = ((frame.shape[1]-starty)/12)*7
 
-        
         way = glob.glob('images/*')
         for py_file in way:
             try:
@@ -195,18 +217,14 @@ class principal:
                 cv2.imwrite('images/cabeca.png', foto)    
         print("Saved points!!")
 
-
-
     def color(self):
-        ImageFile.LOAD_TRUNCATED_IMAGES = True  # Permitir que imagens corrompidas sejam usadas
-        segm_image = xxxxx  # Caminho da imagem
-        # Mostrar imagem
+        ImageFile.LOAD_TRUNCATED_IMAGES = True  # Permitir que imagens corrompidas sejam usadas        # Mostrar imagem
         plt.figure(figsize=(9, 9))
-        img = plt.imread(self.frame)
+        img = plt.imread(self.cam_image)
         plt.imshow(img)
         plt.axis('off')
 
-        colors_x = extcolors.extract_from_path(self.frame, tolerance=12, limit=12)
+        colors_x = extcolors.extract_from_path(self.cam_image, tolerance=12, limit=12)
 
         rgb = (colors_x[0][0][0])
 
@@ -279,37 +297,39 @@ class principal:
 
     def features(self,distance):
         
-        self.pose_points(self.frame)#Find pose points and detach body in three parts
-        
+        self.pose_points(self.cam_image)#Find pose points and detach body in three parts
         body_colors = []
-
         for parts in glob.glob('images/*'):
 
             if parts == 'images/cabeca.png':
                 mask = ifmask('images/cabeca.png')
-                print(mask)
 
-            # Get the main color of the image
             output_color = self.color(parts)
-            # Add to the body_colors list
-            # First element[0] is the torso color, second[1] is the legs color
             body_colors.append(output_color)
         # Return the list of colors
-        print(body_colors)
         height_estimate(distance, starty)
-        return body_colors
-cam = cv2.VideoCapture(2)   
-print('start cam')
-time.sleep(4)
+        return mask,str(body_colors[0]),str(body_colors[1]), height_estimate
+
+    def camera_callback(self,data):
+        self.cam_image = data
+
+    def handler(self, request):
+        self.recog = 0
+        while self.recog == 0:
+            self.img_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
+            mask, shirt, pants, height = self.features(0.5)
+            self.rate.sleep()
+            return mask, shirt, pants, height
+        cv2.destroyAllWindows()
+    
 
 if __name__ == "__main__":
-    print('init code')
-    __, frame = cam.read()
-    cv2.imshow("frame",frame)
-
-    if cv2.waitKey(1) & 0xFF == ord('q'):    
-        cv2.destroyAllWindows()
-    principal(frame)
+    rospy.init_node('feature_bonus', log_level=rospy.INFO)
+    bonusFeatures()
+    try:
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        pass
 
     
 
