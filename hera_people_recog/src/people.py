@@ -74,21 +74,25 @@ class FaceRecog():
             pass        
 
     def find_empty_place(self, boxes):
-        for i, c in enumerate(boxes.cls):
-            box = boxes[i].xyxy[0]
-            obj_class = self.yolo.names[int(c)]
-            for i in range(0, len(self.face_center)):
-                if self.face_name[i] in self.known_name:
-                    if obj_class == 'chair' and not (box[0] < self.face_center[i] < box[2]):
-                        self.center_place = (box[0] + box[2]) / 2
-                    elif obj_class == 'couch':
-                        media_x = (box[0] + box[2]) / 2
-                        if not (box[0] < self.face_center[i] < media_x):
-                            self.center_place = (box[0] + media_x) / 2
-                        elif not (media_x < self.face_center[i] < box[2]):
-                            self.center_place = (media_x + box) / 2
-                if self.center_place:
-                    return True
+        while True:
+            for i, c in enumerate(boxes.cls):
+                box = boxes[i].xyxy[0]
+                obj_class = self.yolo.names[int(c)]
+                for i in range(0, len(self.face_center)):
+                    if self.face_name[i] in self.known_name:
+                        if obj_class == 'chair' and not (box[0] < self.face_center[i] < box[2]):
+                            self.center_place = (box[0] + box[2]) / 2
+                        elif obj_class == 'couch':
+                            media_x = (box[0] + box[2]) / 2
+                            if not (box[0] < self.face_center[i] < media_x):
+                                self.center_place = (box[0] + media_x) / 2
+                            elif not (media_x < self.face_center[i] < box[2]):
+                                self.center_place = (media_x + box) / 2
+                    if self.center_place:
+                        return True
+            self.spin(0.5)
+            self.rate.sleep()
+            self.spin(0)
 
 
     def spin(self, angular):
