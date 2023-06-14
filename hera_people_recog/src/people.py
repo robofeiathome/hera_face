@@ -24,7 +24,7 @@ class FaceRecog():
         rospy.Service('face_recog', face_list, self.handler)
         rospy.loginfo("Start FaceRecogniser Init process...")
         # get an instance of RosPack with the default search paths
-        self.rate = rospy.Rate(2)
+        self.rate = rospy.Rate(5)
         rospack = rospkg.RosPack()
         # get the file path for my_face_recogniser\
         self.twist = Twist()
@@ -78,6 +78,7 @@ class FaceRecog():
             for i, c in enumerate(boxes.cls):
                 box = boxes[i].xyxy[0]
                 obj_class = self.yolo.names[int(c)]
+                print(obj_class)
                 for i in range(0, len(self.face_center)):
                     if self.face_name[i] in self.known_name:
                         if obj_class == 'chair' and not (box[0] < self.face_center[i] < box[2]):
@@ -91,7 +92,7 @@ class FaceRecog():
                     if self.center_place:
                         return True
             self.spin(0.5)
-            self.rate.sleep()
+            time.sleep(2)
             self.spin(0)
 
 
