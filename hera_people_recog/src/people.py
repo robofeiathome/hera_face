@@ -15,6 +15,7 @@ from hera_face.srv import face_list
 from ultralytics import YOLO
 import dlib
 import numpy as np
+from geometry_msgs.msg import Twist
 
 class FaceRecog():
     # cuidado para nao ter imagem com tamanhos diferentes ou cameras diferentes, pois o reconhecimento nao vai funcionar
@@ -23,9 +24,10 @@ class FaceRecog():
         rospy.Service('face_recog', face_list, self.handler)
         rospy.loginfo("Start FaceRecogniser Init process...")
         # get an instance of RosPack with the default search paths
-        self.rate = rospy.Rate(5)
+        self.rate = rospy.Rate(2)
         rospack = rospkg.RosPack()
-        # get the file path for my_face_recogniser
+        # get the file path for my_face_recogniser\
+        self.twist = Twist()
         self.path_to_package = rospack.get_path('hera_face')
         self.yolo = YOLO(self.path_to_package+'/src/coco.pt')
         self.bridge_object = CvBridge()
@@ -34,6 +36,8 @@ class FaceRecog():
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
+
+        self.pub_cmd_vel = rospy.Publisher(self.cmd, Twist, queue_size=10)
 
     def load_data(self):
         self.detector = dlib.get_frontal_face_detector()
@@ -67,7 +71,6 @@ class FaceRecog():
         results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57])
         boxes = results[0].boxes
         while not self.find_empty_place(boxes):
-            #spin 
             pass        
 
     def find_empty_place(self, boxes):
@@ -86,7 +89,13 @@ class FaceRecog():
                             self.center_place = (media_x + box) / 2
                 if self.center_place:
                     return True
-      
+
+
+    def spin(self, angular):
+        vel_cmd = Twist()
+        vel_cmd.angular.z = angular
+        self.pub_cmd_vel.publish(vel_cmd)
+         
     def _check_cam_ready(self):
       self.cam_image = None
       while self.cam_image is None and not rospy.is_shutdown():
