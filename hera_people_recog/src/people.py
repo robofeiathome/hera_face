@@ -36,8 +36,7 @@ class FaceRecog():
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
-
-        self.pub_cmd_vel = rospy.Publisher(self.cmd, Twist, queue_size=10)
+        self.pub_cmd_vel = rospy.Publisher(self.twist, Twist, queue_size=10)
 
     def load_data(self):
         self.detector = dlib.get_frontal_face_detector()
