@@ -150,13 +150,9 @@ class FaceRecog():
             print("Face centers: ", self.face_center)
             print("People in the photo: ", len(img_detected))
         #--------------------------------------------------------------------------
-            center = None
+            center = 0.0
             self.center_place  = None
             if nome_main == '':
-                name = 'face'
-                center = '0.0'
-                self.recog = 1
-            else:
                 for name_known in self.known_name:  
                     if name_known in self.face_name:
                         self.find_sit(small_frame)
@@ -165,6 +161,15 @@ class FaceRecog():
                         print("Pessoa conhecida encontrada")
                         print(self.center_place)
                         self.recog = 1  
+            elif nome_main in self.face_name:
+                name = nome_main
+                center = self.face_center[self.face_name.index(nome_main)]
+                print('Pessoa desejada encontrada')
+                self.recog = 1
+            else:
+                name = 'face'
+                center = '0.0'
+                self.recog = 1
             return name, center, len(img_detected), self.center_place
 
     def handler(self, request):
