@@ -53,16 +53,14 @@ def save_output(image_name,pred,d_dir):
 
     imo.save(d_dir+imidx+'.png')
 
-def mask(img):
+def mask():
 
     # --------- 1. get image path and name ---------
     model_name='u2netp'# fixed as u2netp
 
-
-
-    image_dir = os.path.join(os.getcwd(), "/home/bibo/catkin_ws/src/hera_face/features_pkg/src", 'base/') # changed to 'images' directory which is populated while running the script
-    prediction_dir = os.path.join(os.getcwd(), "/home/bibo/catkin_ws/src/hera_face/features_pkg/src", 'mask/') # changed to 'results' directory which is populated after the predictions
-    model_dir = os.path.join(os.getcwd(), "/home/bibo/catkin_ws/src/hera_face/features_pkg/src", model_name + '.pth') # path to u2netp pretrained weights
+    image_dir = os.path.join(os.getcwd(), "/home/bibo/catkin_dev/src/hera_face/features_pkg/src", 'base/') # changed to 'images' directory which is populated while running the script
+    prediction_dir = os.path.join(os.getcwd(), "/home/bibo/catkin_dev/src/hera_face/features_pkg/src", 'mask/') # changed to 'results' directory which is populated after the predictions
+    model_dir = os.path.join(os.getcwd(), "/home/bibo/catkin_dev/src/hera_face/features_pkg/src", model_name + '.pth') # path to u2netp pretrained weights
 
     img_name_list = glob.glob(image_dir + os.sep + '*')
 

@@ -1,27 +1,32 @@
+#!/usr/bin/python
 from importlib.util import module_for_loader
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from PIL import Image, ImageFile
-import cv2
-import extcolors
-import os
 from colormap import rgb2hex
 from tensorflow.keras.preprocessing.image import load_img
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.models import load_model
-import argparse
+from PIL import Image, ImageFile
 from u2net_test import mask
-import glob
-import json
-from hera_face.srv import features
+from features_pkg.srv import features
 from data_loader import RescaleT
 from data_loader import ToTensor
 from data_loader import ToTensorLab
 from data_loader import SalObjDataset
-
 from model import U2NETP # small version u2net 4.7 MB
+from sensor_msgs.msg import Image as imgmsg
+from cv_bridge import CvBridge
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import cv2
+import extcolors
+import os
+import argparse
+import glob
+import json
+import rospy
+import time
+
 
 class bonusFeatures:
 
@@ -41,7 +46,7 @@ class bonusFeatures:
                     ["LHip", "LKnee"], ["LKnee", "LAnkle"], ["Neck", "Nose"], ["Nose", "REye"],
                     ["REye", "REar"], ["Nose", "LEye"], ["LEye", "LEar"]]
         self.topic = "/usb_cam/image_raw"
-        self.img_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
+        self.img_sub = rospy.Subscriber(self.topic,imgmsg,self.camera_callback)
 
     def body_points(self,frame):
         points = []
@@ -78,7 +83,8 @@ class bonusFeatures:
             break
 
     def creating_mask(self,frame):
-        output = mask(frame)
+        rospy.loginfo("Starting mask")
+        output = mask()
         output = load_img(output)
         rescale_val = 255
         out_img = img_to_array(output) / rescale_val
@@ -100,7 +106,7 @@ class bonusFeatures:
         rem_back_scaled = Image.fromarray((rem_back * rescale_val).astype('uint8'), 'RGBA')
 
         rem_back_scaled.save('results/removed_background.png')
-
+        rospy.loginfo("Sucessfully created mask!")
         out_layer = out_img[:,:,1]
         y_starts = [np.where(out_layer.T[i]==1)[0][0] if len(np.where(out_layer.T[i]==1)[0])!=0 else out_layer.T.shape[0]+1 for i in range(out_layer.T.shape[0])]
         
@@ -121,7 +127,7 @@ class bonusFeatures:
 
     def ifmask(path):
 	        
-        model = load_model('/home/bibo/catkin_ws/src/hera_face/features_pkg/src/mask_detector.model')
+        model = load_model('/home/bibo/catkin_dev/src/hera_face/features_pkg/src/mask_detector.model')
         openimage = cv2.imread(path)
         image = cv2.resize(openimage,(224,224))
         image = np.reshape(image,[1,224,224,3]) 
@@ -133,23 +139,26 @@ class bonusFeatures:
             return "No Mask"
 	
     def pose_points(self,frame):
+        rospy.loginfo("finding pose points")
         null = 'null'
         
         inWidth = 480
         inHeight = 640
 
-        net = cv2.dnn.readNetFromTensorflow("/home/bibo/catkin_ws/src/hera_face/features_pkg/src/graph_opt.pb")
+        net = cv2.dnn.readNetFromTensorflow("/home/bibo/catkin_dev/src/hera_face/features_pkg/src/graph_opt.pb")
 
         net.setInput(
             cv2.dnn.blobFromImage(frame, 1.0, (inWidth, inHeight), (127.5, 127.5, 127.5), swapRB=True, crop=False)) 
         out = net.forward()
         out = out[:, :19, :, :]  
 
-        assert (len(BODY_PARTS) == out.shape[1]) 
-
+        assert (len(self.BODY_PARTS) == out.shape[1]) 
+        
+        
         self.creating_mask(frame)
         
-        body_points(frame, self.BODY_PARTS, self.POSE_PAIRS)
+
+        self.body_points(frame)
 
         with open('points.json', 'r') as f:
             self.point = json.load(f)
@@ -205,7 +214,6 @@ class bonusFeatures:
             else:
                 foto = modelo[:self.neck - 10]
                 cv2.imwrite('images/cabeca.png', foto)    
-        print("Saved points!!")
 
     def color(self,path):
         ImageFile.LOAD_TRUNCATED_IMAGES = True 
@@ -268,9 +276,10 @@ class bonusFeatures:
 
 
     def features(self,distance):
-        
-        frame = self.bridge_object.imgmsg_to_cv2(self.cam_image,desired_encoding='bgr8')
+        self.bridge = CvBridge()
+        frame = self.bridge.imgmsg_to_cv2(self.cam_image,desired_encoding='bgr8')
         time.sleep(1)
+        cv2.imwrite('base/img.png', frame)    
 
         self.pose_points(frame)
 
@@ -290,9 +299,11 @@ class bonusFeatures:
 
     def handler(self, request):
         self.recog = 0
+        rospy.loginfo("Service called!")
+        rospy.loginfo("Requested..")
         while self.recog == 0:
-            self.img_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
-            mask, shirt, pants, height = self.features(0.5)
+            self.img_sub = rospy.Subscriber(self.topic,imgmsg,self.camera_callback)
+            mask, shirt, pants, height = self.features(request)
             self.rate.sleep()
             return mask, shirt, pants, height
         cv2.destroyAllWindows()
@@ -300,6 +311,8 @@ class bonusFeatures:
 
 if __name__ == "__main__":
     rospy.init_node('feature_bonus', log_level=rospy.INFO)
+    rospy.loginfo("Service started!")
+
     bonusFeatures()
     try:
         rospy.spin()
