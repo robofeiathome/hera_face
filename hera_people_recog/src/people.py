@@ -45,53 +45,69 @@ class FaceRecog():
         self.known_face = []
         self.known_name = []
         for f in range(0, len(files)):
-            img = dlib.load_rgb_image(self.people_dir + files[f])
-            img_detected = self.detector(img, 1)
-            bouding_boxes = []
-            for i, rects in enumerate(img_detected):
-                area = rects.top() * rects.left()
-                bouding_boxes.append(area)
-            biggest_box = bouding_boxes.index(max(bouding_boxes))
-            img_shape = self.sp(img, img_detected[biggest_box])
-            align_img = dlib.get_face_chip(img, img_shape)
-            img_rep = np.array(self.model.compute_face_descriptor(align_img))
-            if len(img_detected) > 0:
-                self.known_face.append(img_rep)
-                self.known_name.append(files[f].split('.')[0])
-                break 
-            else:
-                rospy.loginfo("No face detected in image: " + files[f])
-                break
+            for _ in range(0, 100):
+                img = dlib.load_rgb_image(self.people_dir + files[f])
+                img_detected = self.detector(img, 1)
+                bouding_boxes = []
+                if len(img_detected) > 0:
+                    for i, rects in enumerate(img_detected):
+                        area = rects.top() * rects.left()
+                        bouding_boxes.append(area)
+                    biggest_box = bouding_boxes.index(max(bouding_boxes))
+                    img_shape = self.sp(img, img_detected[biggest_box])
+                    align_img = dlib.get_face_chip(img, img_shape)
+                    img_rep = np.array(self.model.compute_face_descriptor(align_img))
+                    self.known_face.append(img_rep)
+                    self.known_name.append(files[f].split('.')[0])
+                    break 
+                else:
+                    rospy.loginfo("No face detected in image: " + files[f])
+                    break
 
     def find_sit(self, small_frame):
         print('FIND SIT CHEGUEI')
-        results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57])
+        results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
         boxes = results[0].boxes
-        while not self.find_empty_place(boxes):
-            pass 
+        while True:
+            if self.find_empty_place(boxes):
+                break
 
     def find_empty_place(self, boxes):
         print('EMPTY PLACE CHEGUEI')
         for i, c in enumerate(boxes.cls):
             box = boxes[i].xyxy[0]
+            print(box)
             obj_class = self.yolo.names[int(c)]
             print(obj_class)
-            for i in range(0, len(self.face_center)):
-                if len(self.face_name) > 0: 
-                    if obj_class == 'chair' and not (box[0] < self.face_center[i] < box[2]) or self.face_name[i] == 'Face':
+            found = 0
+            if len(self.face_center) > 0:
+                for i in range(0, len(self.face_center)):
+                    print(self.face_name)
+                    if self.face_name[i] in self.known_name:
+                        found = 1
+                        if obj_class == 'chair' and not (box[0] < self.face_center[i] < box[2]):
+                            self.center_place = (box[0] + box[2]) / 2
+                            print("lugar 0")
+                            return True
+                        elif obj_class == 'couch':
+                            media_x = (box[0] + box[2]) / 2
+                            if not (box[0] < self.face_center[i] < media_x):
+                                self.center_place = (box[0] + media_x) / 2
+                                print('lugar 1')
+                                return True
+                            elif not (media_x < self.face_center[i] < box[2]):
+                                self.center_place = (media_x + box[2]) / 2
+                                print('lugar 2')
+                                return True
+                if found == 0:
+                    if obj_class == 'chair':
                         self.center_place = (box[0] + box[2]) / 2
-                        print("lugar 0")
                         return True
                     elif obj_class == 'couch':
                         media_x = (box[0] + box[2]) / 2
-                        if not (box[0] < self.face_center[i] < media_x) or self.face_name[i] == 'Face':
-                            self.center_place = (box[0] + media_x) / 2
-                            print('lugar 1')
-                            return True
-                        elif not (media_x < self.face_center[i] < box[2]) or self.face_name[i] == 'Face':
-                            self.center_place = (media_x + box[2]) / 2
-                            print('lugar 2')
-                            return True
+                        self.center_place = (box[0] + media_x) / 2
+                        return True
+                    
             else:
                 print("aqui")
                 if obj_class == 'chair':
@@ -141,7 +157,7 @@ class FaceRecog():
             for i in range(0, len(img_detected)):
                 name = 'Face'
                 for _ in range(0, len(self.known_face)):      
-                    euclidean_dist = list(np.linalg.norm(self.known_face - img_rep[i], axis=1) <= 0.6)
+                    euclidean_dist = list(np.linalg.norm(self.known_face - img_rep[i], axis=1) <= 0.62)
                     if True in euclidean_dist:
                         fst = euclidean_dist.index(True)
                         name = self.known_name[fst]
@@ -170,9 +186,9 @@ class FaceRecog():
         #--------------------------------------------------------------------------
             center = 0.0
             if nome_main == '':
+                self.find_sit(small_frame)
                 for name_known in self.known_name:  
                     if name_known in self.face_name:
-                        self.find_sit(small_frame)
                         center = self.face_center[self.face_name.index(name_known)]
                         name = self.face_name[self.face_name.index(name_known)]
                         print("Pessoa conhecida encontrada")
