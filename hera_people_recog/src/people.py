@@ -37,7 +37,7 @@ class FaceRecog():
 
     def load_data(self):
         self.detector = dlib.get_frontal_face_detector()
-        self.sp = dlib.shape_predictor(self.path_to_package+ "/src/shape_predictor_68_face_landmarks_GTX.dat")
+        self.sp = dlib.shape_predictor(self.path_to_package+ "/src/shape_predictor_5_face_landmarks.dat")
         self.model  = dlib.face_recognition_model_v1(self.path_to_package+"/src/dlib_face_recognition_resnet_model_v1.dat")
         self.people_dir = self.path_to_package+'/face_images/'
         files = fnmatch.filter(os.listdir(self.people_dir), '*.jpg')
@@ -78,29 +78,29 @@ class FaceRecog():
             print(obj_class)
             for i in range(0, len(self.face_center)):
                 if len(self.face_name) > 0: 
-                    if self.face_name[i] in self.known_name:
-                        if obj_class == 'chair' and not (box[0] < self.face_center[i] < box[2]):
-                            self.center_place = (box[0] + box[2]) / 2
-                            print("lugar 0")
-                            return True
-                        elif obj_class == 'couch':
-                            media_x = (box[0] + box[2]) / 2
-                            if not (box[0] < self.face_center[i] < media_x):
-                                self.center_place = (box[0] + media_x) / 2
-                                print('lugar 1')
-                                return True
-                            elif not (media_x < self.face_center[i] < box[2]):
-                                self.center_place = (media_x + box[2]) / 2
-                                print('lugar 2')
-                                return True
-                else:
-                    if obj_class == 'chair':
+                    if obj_class == 'chair' and not (box[0] < self.face_center[i] < box[2]) or self.face_name[i] == 'Face':
                         self.center_place = (box[0] + box[2]) / 2
+                        print("lugar 0")
                         return True
                     elif obj_class == 'couch':
                         media_x = (box[0] + box[2]) / 2
-                        self.center_place = (box[0] + media_x) / 2
-                        return True
+                        if not (box[0] < self.face_center[i] < media_x) or self.face_name[i] == 'Face':
+                            self.center_place = (box[0] + media_x) / 2
+                            print('lugar 1')
+                            return True
+                        elif not (media_x < self.face_center[i] < box[2]) or self.face_name[i] == 'Face':
+                            self.center_place = (media_x + box[2]) / 2
+                            print('lugar 2')
+                            return True
+            else:
+                print("aqui")
+                if obj_class == 'chair':
+                    self.center_place = (box[0] + box[2]) / 2
+                    return True
+                elif obj_class == 'couch':
+                    media_x = (box[0] + box[2]) / 2
+                    self.center_place = (box[0] + media_x) / 2
+                    return True
         return False
     
     def _check_cam_ready(self):
@@ -117,6 +117,7 @@ class FaceRecog():
 
     def recognize(self, data, nome_main):
         self.load_data()
+        self.center_place = 0.0
         #Get image from topic
         small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
         time.sleep(1)   
@@ -127,7 +128,8 @@ class FaceRecog():
         #Check if there are people
         if len(img_detected) == 0:
             rospy.loginfo("No face detected")
-            return '', 0.0, len(img_detected), 404
+            self.find_sit(small_frame)
+            return '', 0.0, len(img_detected), self.center_place
         else:
             faces = dlib.full_object_detections()
             for detection in img_detected:
@@ -167,7 +169,6 @@ class FaceRecog():
             print("People in the photo: ", len(img_detected))
         #--------------------------------------------------------------------------
             center = 0.0
-            self.center_place  = 0.0
             if nome_main == '':
                 for name_known in self.known_name:  
                     if name_known in self.face_name:
