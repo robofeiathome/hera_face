@@ -15,7 +15,6 @@ from hera_face.srv import face_list
 from ultralytics import YOLO
 import dlib
 import numpy as np
-from geometry_msgs.msg import Twist
 
 class FaceRecog():
     # cuidado para nao ter imagem com tamanhos diferentes ou cameras diferentes, pois o reconhecimento nao vai funcionar
@@ -26,8 +25,7 @@ class FaceRecog():
         # get an instance of RosPack with the default search paths
         self.rate = rospy.Rate(5)
         rospack = rospkg.RosPack()
-        # get the file path for my_face_recogniser\
-        self.twist = Twist()
+        # get the file path for my_face_recogniser
         self.path_to_package = rospack.get_path('hera_face')
         self.yolo = YOLO(self.path_to_package+'/src/coco.pt')
         self.bridge_object = CvBridge()
@@ -36,11 +34,10 @@ class FaceRecog():
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
-        self.pub_cmd_vel = rospy.Publisher(self.twist, Twist, queue_size=10)
 
     def load_data(self):
         self.detector = dlib.get_frontal_face_detector()
-        self.sp = dlib.shape_predictor(self.path_to_package+ "/src/shape_predictor_5_face_landmarks.dat")
+        self.sp = dlib.shape_predictor(self.path_to_package+ "/src/shape_predictor_68_face_landmarks_GTX.dat")
         self.model  = dlib.face_recognition_model_v1(self.path_to_package+"/src/dlib_face_recognition_resnet_model_v1.dat")
         self.people_dir = self.path_to_package+'/face_images/'
         files = fnmatch.filter(os.listdir(self.people_dir), '*.jpg')
@@ -67,39 +64,45 @@ class FaceRecog():
                 break
 
     def find_sit(self, small_frame):
+        print('FIND SIT CHEGUEI')
         results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57])
         boxes = results[0].boxes
         while not self.find_empty_place(boxes):
-            pass        
+            pass 
 
     def find_empty_place(self, boxes):
-        while True:
-            for i, c in enumerate(boxes.cls):
-                box = boxes[i].xyxy[0]
-                obj_class = self.yolo.names[int(c)]
-                print(obj_class)
-                for i in range(0, len(self.face_center)):
+        print('EMPTY PLACE CHEGUEI')
+        for i, c in enumerate(boxes.cls):
+            box = boxes[i].xyxy[0]
+            obj_class = self.yolo.names[int(c)]
+            print(obj_class)
+            for i in range(0, len(self.face_center)):
+                if len(self.face_name) > 0: 
                     if self.face_name[i] in self.known_name:
                         if obj_class == 'chair' and not (box[0] < self.face_center[i] < box[2]):
                             self.center_place = (box[0] + box[2]) / 2
+                            print("lugar 0")
+                            return True
                         elif obj_class == 'couch':
                             media_x = (box[0] + box[2]) / 2
                             if not (box[0] < self.face_center[i] < media_x):
                                 self.center_place = (box[0] + media_x) / 2
+                                print('lugar 1')
+                                return True
                             elif not (media_x < self.face_center[i] < box[2]):
-                                self.center_place = (media_x + box) / 2
-                    if self.center_place:
+                                self.center_place = (media_x + box[2]) / 2
+                                print('lugar 2')
+                                return True
+                else:
+                    if obj_class == 'chair':
+                        self.center_place = (box[0] + box[2]) / 2
                         return True
-            self.spin(0.5)
-            time.sleep(2)
-            self.spin(0)
-
-
-    def spin(self, angular):
-        vel_cmd = Twist()
-        vel_cmd.angular.z = angular
-        self.pub_cmd_vel.publish(vel_cmd)
-         
+                    elif obj_class == 'couch':
+                        media_x = (box[0] + box[2]) / 2
+                        self.center_place = (box[0] + media_x) / 2
+                        return True
+        return False
+    
     def _check_cam_ready(self):
       self.cam_image = None
       while self.cam_image is None and not rospy.is_shutdown():
@@ -164,7 +167,7 @@ class FaceRecog():
             print("People in the photo: ", len(img_detected))
         #--------------------------------------------------------------------------
             center = 0.0
-            self.center_place  = None
+            self.center_place  = 0.0
             if nome_main == '':
                 for name_known in self.known_name:  
                     if name_known in self.face_name:
