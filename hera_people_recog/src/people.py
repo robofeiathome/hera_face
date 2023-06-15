@@ -68,8 +68,10 @@ class FaceRecog():
         print('FIND SIT CHEGUEI')
         results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
         boxes = results[0].boxes
+        self.center_place = None
         while True:
-            if self.find_empty_place(boxes):
+            self.find_empty_place(boxes)
+            if self.center_place != None:
                 break
 
     def find_empty_place(self, boxes):
@@ -88,36 +90,28 @@ class FaceRecog():
                         if obj_class == 'chair' and not (box[0] < self.face_center[i] < box[2]):
                             self.center_place = (box[0] + box[2]) / 2
                             print("lugar 0")
-                            return True
                         elif obj_class == 'couch':
                             media_x = (box[0] + box[2]) / 2
                             if not (box[0] < self.face_center[i] < media_x):
                                 self.center_place = (box[0] + media_x) / 2
                                 print('lugar 1')
-                                return True
                             elif not (media_x < self.face_center[i] < box[2]):
                                 self.center_place = (media_x + box[2]) / 2
                                 print('lugar 2')
-                                return True
                 if found == 0:
                     if obj_class == 'chair':
                         self.center_place = (box[0] + box[2]) / 2
-                        return True
                     elif obj_class == 'couch':
                         media_x = (box[0] + box[2]) / 2
                         self.center_place = (box[0] + media_x) / 2
-                        return True
                     
             else:
                 print("aqui")
                 if obj_class == 'chair':
                     self.center_place = (box[0] + box[2]) / 2
-                    return True
                 elif obj_class == 'couch':
                     media_x = (box[0] + box[2]) / 2
                     self.center_place = (box[0] + media_x) / 2
-                    return True
-        return False
     
     def _check_cam_ready(self):
       self.cam_image = None
