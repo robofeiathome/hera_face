@@ -31,7 +31,7 @@ class FaceRecog():
         self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
 
         self.twist = Twist()
-        self.pub_cmd_vel = rospy.Publisher(self.twist, Twist, queue_size=10)
+        self.pub_cmd_vel = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
 
     def load_data(self):
@@ -73,11 +73,11 @@ class FaceRecog():
 
     def find_sit(self, small_frame):
         print('FIND SIT CHEGUEI')
-        results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57])
+        results = self.yolo.predict(source=small_frame, conf=0.8, device=0, classes=[56,57])
         while len(results[0]) == 0:
             self.spin()
             small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
-            results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57])
+            results = self.yolo.predict(source=small_frame, conf=0.8, device=0, classes=[56,57])
         boxes = results[0].boxes
         self.center_place = None
         while True:
