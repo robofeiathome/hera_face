@@ -65,7 +65,7 @@ class FaceRecog():
 
     def spin(self):
         vel_cmd = Twist()
-        vel_cmd.angular.z = 0.2
+        vel_cmd.angular.z = -0.8
         self.pub_cmd_vel.publish(vel_cmd)
         time.sleep(3)
         vel_cmd.angular.z = 0.0
