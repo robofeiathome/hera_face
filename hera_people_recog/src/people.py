@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from pyexpat import model
 import sys
 import os
 from turtle import back
@@ -67,6 +66,8 @@ class FaceRecog():
     def find_sit(self, small_frame):
         print('FIND SIT CHEGUEI')
         results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57])
+        while len(results[0]) == 0:
+            results = self.yolo.predict(source=self.cam_image, conf=0.5, device=0, classes=[56,57])
         boxes = results[0].boxes
         self.center_place = None
         while True:
