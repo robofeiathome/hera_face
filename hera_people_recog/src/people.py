@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
-import sys
 import os
-from turtle import back
-from unicodedata import name
 import rospy
 from sensor_msgs.msg import Image
 import rospkg
 import fnmatch
 import cv2
 import time
-from cv_bridge import CvBridge, CvBridgeError
+from cv_bridge import CvBridge
 from hera_face.srv import face_list
 from ultralytics import YOLO
 import dlib
 import numpy as np
+from geometry_msgs.msg import Twist
 
 class FaceRecog():
     # cuidado para nao ter imagem com tamanhos diferentes ou cameras diferentes, pois o reconhecimento nao vai funcionar
@@ -21,10 +19,9 @@ class FaceRecog():
     def __init__(self):
         rospy.Service('face_recog', face_list, self.handler)
         rospy.loginfo("Start FaceRecogniser Init process...")
-        # get an instance of RosPack with the default search paths
         self.rate = rospy.Rate(5)
         rospack = rospkg.RosPack()
-        # get the file path for my_face_recogniser
+
         self.path_to_package = rospack.get_path('hera_face')
         self.yolo = YOLO(self.path_to_package+'/src/coco.pt')
         self.bridge_object = CvBridge()
@@ -32,6 +29,9 @@ class FaceRecog():
         self.topic = "/zed_node/left_raw/image_raw_color"
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
+
+        self.twist = Twist()
+        self.pub_cmd_vel = rospy.Publisher(self.twist, Twist, queue_size=10)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
 
     def load_data(self):
@@ -63,12 +63,21 @@ class FaceRecog():
                     rospy.loginfo("No face detected in image: " + files[f])
                     break
 
+    def spin(self):
+        vel_cmd = Twist()
+        vel_cmd.angular.z = 0.2
+        self.pub_cmd_vel.publish(vel_cmd)
+        time.sleep(3)
+        vel_cmd.angular.z = 0.0
+        self.pub_cmd_vel.publish(vel_cmd)
+
     def find_sit(self, small_frame):
         print('FIND SIT CHEGUEI')
         results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57])
         while len(results[0]) == 0:
-            small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
-            results = self.yolo.predict(source=small, conf=0.5, device=0, classes=[56,57])
+            self.spin()
+            small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
+            results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57])
         boxes = results[0].boxes
         self.center_place = None
         while True:
