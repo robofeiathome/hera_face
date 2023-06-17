@@ -30,7 +30,6 @@ class FaceRecog():
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
 
-        self.twist = Twist()
         self.pub_cmd_vel = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
 
@@ -65,7 +64,7 @@ class FaceRecog():
 
     def spin(self):
         vel_cmd = Twist()
-        vel_cmd.angular.z = -0.8
+        vel_cmd.angular.z = 0.8
         self.pub_cmd_vel.publish(vel_cmd)
         time.sleep(3)
         vel_cmd.angular.z = 0.0
@@ -73,11 +72,11 @@ class FaceRecog():
 
     def find_sit(self, small_frame):
         print('FIND SIT CHEGUEI')
-        results = self.yolo.predict(source=small_frame, conf=0.8, device=0, classes=[56,57])
+        results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
         while len(results[0]) == 0:
             self.spin()
             small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
-            results = self.yolo.predict(source=small_frame, conf=0.8, device=0, classes=[56,57])
+            results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
         boxes = results[0].boxes
         self.center_place = None
         while True:
@@ -109,6 +108,12 @@ class FaceRecog():
                             elif not (media_x < self.face_center[i] < box[2]):
                                 self.center_place = (media_x + box[2]) / 2
                                 print('lugar 2')
+                        elif self.center_place == None or not obj_class:
+                            while len(results[0]) == 0:
+                                self.spin()
+                                small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
+                                results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
+                                self.find_empty_place(results[0].boxes)
                 if found == 0:
                     if obj_class == 'chair':
                         self.center_place = (box[0] + box[2]) / 2
