@@ -108,8 +108,8 @@ class FaceRecog():
                             elif not (media_x < self.face_center[i] < box[2]):
                                 self.center_place = (media_x + box[2]) / 2
                                 print('lugar 2')
-                        elif self.center_place == None or not obj_class:
-                            while len(results[0]) == 0:
+                        elif self.center_place == None or len(boxes) == 0:
+                            while len(boxes) == 0:
                                 self.spin()
                                 small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
                                 results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
