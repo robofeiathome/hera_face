@@ -62,9 +62,9 @@ class FaceRecog():
                     rospy.loginfo("No face detected in image: " + files[f])
                     break
 
-    def spin(self):
+    def spin(self, velocidade=0.8):
         vel_cmd = Twist()
-        vel_cmd.angular.z = 0.8
+        vel_cmd.angular.z = velocidade
         self.pub_cmd_vel.publish(vel_cmd)
         time.sleep(3)
         vel_cmd.angular.z = 0.0
@@ -83,6 +83,11 @@ class FaceRecog():
             self.find_empty_place(boxes)
             if self.center_place != None:
                 break
+            else:
+                self.spin()
+                small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
+                results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
+                boxes = results[0].boxes
 
     def find_empty_place(self, boxes):
         print('EMPTY PLACE CHEGUEI')
@@ -108,12 +113,6 @@ class FaceRecog():
                             elif not (media_x < self.face_center[i] < box[2]):
                                 self.center_place = (media_x + box[2]) / 2
                                 print('lugar 2')
-                        elif self.center_place == None or len(boxes) == 0:
-                            while len(boxes) == 0:
-                                self.spin()
-                                small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
-                                results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
-                                self.find_empty_place(results[0].boxes)
                 if found == 0:
                     if obj_class == 'chair':
                         self.center_place = (box[0] + box[2]) / 2
