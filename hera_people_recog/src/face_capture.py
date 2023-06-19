@@ -69,7 +69,7 @@ class FaceCapture():
 
         
         # face_locations = []
-        small_frame = cv2.resize(video_capture, (0, 0), fx=0.5, fy=0.5)
+        small_frame = cv2.resize(video_capture, (0, 0), fx=1, fy=1)
 
         image_path = os.path.join(self.path_to_package + '/face_images/')
         detector = dlib.get_frontal_face_detector()
