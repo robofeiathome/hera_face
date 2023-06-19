@@ -74,21 +74,17 @@ class FaceRecog():
     
     def find_sit(self, small_frame):
         print('FIND SIT CHEGUEI')
-        results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
-        while len(results[0]) == 0:
+        boxes = self.predict()
+        while len(boxes) == 0:
             self.spin(-0.4)
-            small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
-            results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
+            boxes = self.predict()
         self.spin(0)
-        boxes = results[0].boxes
         self.center_place = None
         while True:
             if len(boxes) > 0:
                 self.spin(0)
                 time.sleep(1)
-                small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
-                results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
-                boxes = results[0].boxes
+                boxes = self.predict()
                 self.find_empty_place(boxes)
             
             if self.center_place != None:
@@ -96,8 +92,7 @@ class FaceRecog():
             else:
                 self.spin(-0.4)
                 small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
-                results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
-                boxes = results[0].boxes
+                boxes = self.predict()
 
     def find_empty_place(self, boxes):
         print('EMPTY PLACE CHEGUEI')
