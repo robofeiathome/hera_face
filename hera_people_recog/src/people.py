@@ -67,6 +67,11 @@ class FaceRecog():
         vel_cmd.angular.z = velocidade
         self.pub_cmd_vel.publish(vel_cmd)
 
+    def predict():
+        small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
+        results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
+        return results[0].boxes
+    
     def find_sit(self, small_frame):
         print('FIND SIT CHEGUEI')
         results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
