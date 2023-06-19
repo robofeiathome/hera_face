@@ -26,7 +26,7 @@ class FaceRecog():
         self.yolo = YOLO(self.path_to_package+'/src/coco.pt')
         self.bridge_object = CvBridge()
         rospy.loginfo("Start camera suscriber...")
-        self.topic = "/zed_node/left_raw/image_raw_color"
+        self.topic = "/usb_cam/image_raw"
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
 
