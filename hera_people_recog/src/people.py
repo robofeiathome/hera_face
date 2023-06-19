@@ -80,6 +80,10 @@ class FaceRecog():
         while True:
             if len(boxes) > 0:
                 self.spin(0)
+                time.sleep(1)
+                small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
+                results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
+                boxes = results[0].boxes
                 self.find_empty_place(boxes)
             
             if self.center_place != None:
