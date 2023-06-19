@@ -62,12 +62,9 @@ class FaceRecog():
                     rospy.loginfo("No face detected in image: " + files[f])
                     break
 
-    def spin(self, velocidade=0.8):
+    def spin(self, velocidade=-0.4):
         vel_cmd = Twist()
         vel_cmd.angular.z = velocidade
-        self.pub_cmd_vel.publish(vel_cmd)
-        time.sleep(3)
-        vel_cmd.angular.z = 0.0
         self.pub_cmd_vel.publish(vel_cmd)
 
     def find_sit(self, small_frame):
