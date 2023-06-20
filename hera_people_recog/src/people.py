@@ -13,9 +13,11 @@ import dlib
 import numpy as np
 from geometry_msgs.msg import Twist
 
-class FaceRecog():
+
+class FaceRecog:
     # cuidado para nao ter imagem com tamanhos diferentes ou cameras diferentes, pois o reconhecimento nao vai funcionar
     recog = 0
+
     def __init__(self):
         rospy.Service('face_recog', face_list, self.handler)
         rospy.loginfo("Start FaceRecogniser Init process...")
@@ -23,33 +25,34 @@ class FaceRecog():
         rospack = rospkg.RosPack()
 
         self.path_to_package = rospack.get_path('hera_face')
-        self.yolo = YOLO(self.path_to_package+'/src/coco.pt')
+        self.yolo = YOLO(self.path_to_package + '/src/coco.pt')
         self.bridge_object = CvBridge()
         rospy.loginfo("Start camera suscriber...")
         self.topic = "/usb_cam/image_raw"
         self._check_cam_ready()
-        self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
+        self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
 
         self.pub_cmd_vel = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
-    
-    def _check_cam_ready(self):
-      self.cam_image = None
-      while self.cam_image is None and not rospy.is_shutdown():
-         try:
-               self.cam_image = rospy.wait_for_message(self.topic, Image, timeout=1.0)
-               rospy.logdebug("Current "+self.topic+" READY=>" + str(self.cam_image))
-         except:
-               rospy.logerr("Current "+self.topic+" not ready yet, retrying.")
 
-    def camera_callback(self,data):
+    def _check_cam_ready(self):
+        self.cam_image = None
+        while self.cam_image is None and not rospy.is_shutdown():
+            try:
+                self.cam_image = rospy.wait_for_message(self.topic, Image, timeout=1.0)
+                rospy.logdebug("Current " + self.topic + " READY=>" + str(self.cam_image))
+            except:
+                rospy.logerr("Current " + self.topic + " not ready yet, retrying.")
+
+    def camera_callback(self, data):
         self.cam_image = data
 
     def load_data(self):
         self.detector = dlib.get_frontal_face_detector()
-        self.sp = dlib.shape_predictor(self.path_to_package+ "/src/shape_predictor_5_face_landmarks.dat")
-        self.model  = dlib.face_recognition_model_v1(self.path_to_package+"/src/dlib_face_recognition_resnet_model_v1.dat")
-        self.people_dir = self.path_to_package+'/face_images/'
+        self.sp = dlib.shape_predictor(self.path_to_package + "/src/shape_predictor_5_face_landmarks.dat")
+        self.model = dlib.face_recognition_model_v1(
+            self.path_to_package + "/src/dlib_face_recognition_resnet_model_v1.dat")
+        self.people_dir = self.path_to_package + '/face_images/'
         files = fnmatch.filter(os.listdir(self.people_dir), '*.jpg')
 
         self.known_face = []
@@ -69,7 +72,7 @@ class FaceRecog():
                     img_rep = np.array(self.model.compute_face_descriptor(align_img))
                     self.known_face.append(img_rep)
                     self.known_name.append(files[f].split('.')[0])
-                    break 
+                    break
                 else:
                     rospy.loginfo("No face detected in image: " + files[f])
                     break
@@ -81,9 +84,9 @@ class FaceRecog():
 
     def predict(self):
         small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
-        results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
+        results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56, 57], show=True)
         return results[0].boxes
-    
+
     def find_sit(self):
         print('FIND SIT CHEGUEI')
         boxes = self.predict()
@@ -98,8 +101,8 @@ class FaceRecog():
                 time.sleep(1)
                 boxes = self.predict()
                 self.find_empty_place(boxes)
-            
-            if self.center_place != None:
+
+            if self.center_place is not None:
                 break
             else:
                 self.spin(-0.4)
@@ -107,8 +110,8 @@ class FaceRecog():
 
     def find_empty_place(self, boxes):
         print('EMPTY PLACE CHEGUEI')
-        for i, c in enumerate(boxes.cls):
-            box = boxes[i].xyxy[0]
+        for k, c in enumerate(boxes.cls):
+            box = boxes[k].xyxy[0]
             print(box)
             obj_class = self.yolo.names[int(c)]
             print(obj_class)
@@ -147,7 +150,7 @@ class FaceRecog():
         self.face_center = []
         self.face_name = []
         img_detected = self.detector(small_frame, 1)
-        #Check if there are people
+        # Check if there are people
         if len(img_detected) == 0:
             rospy.loginfo("No face detected")
             self.find_sit()
@@ -156,13 +159,13 @@ class FaceRecog():
             faces = dlib.full_object_detections()
             for detection in img_detected:
                 faces.append(self.sp(small_frame, detection))
-            align_img = dlib.get_face_chips(small_frame, faces)                    
+            align_img = dlib.get_face_chips(small_frame, faces)
             img_rep = np.array(self.model.compute_face_descriptor(align_img))
-        #--------------------------------------------------------------------------------
-        #Match known faces with current faces
+            # --------------------------------------------------------------------------------
+            # Match known faces with current faces
             for i in range(0, len(img_detected)):
                 name = 'Face'
-                for _ in range(0, len(self.known_face)):      
+                for _ in range(0, len(self.known_face)):
                     euclidean_dist = list(np.linalg.norm(self.known_face - img_rep[i], axis=1) <= 0.62)
                     if True in euclidean_dist:
                         fst = euclidean_dist.index(True)
@@ -170,48 +173,53 @@ class FaceRecog():
                     else:
                         continue
                 self.face_name.insert(i, name)
-        #--------------------------------------------------------------------------
-        #Plot boxes
+            # --------------------------------------------------------------------------
+            # Plot boxes
             for i, rects in enumerate(img_detected):
                 if self.face_name[i] in self.known_name:
-                    cv2.rectangle(small_frame, (rects.left(), rects.top()), (rects.right(), rects.bottom()), (0, 255, 0), 2)
-                    cv2.putText(small_frame, self.face_name[i], (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                    cv2.rectangle(small_frame, (rects.left(), rects.top()), (rects.right(), rects.bottom()),
+                                  (0, 255, 0), 2)
+                    cv2.putText(small_frame, self.face_name[i], (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX,
+                                1, (0, 255, 0), 2, cv2.LINE_AA)
                 else:
-                    cv2.rectangle(small_frame, (rects.left(), rects.top()), (rects.right(), rects.bottom()), (255, 0, 0), 2)
-                    cv2.putText(small_frame, self.face_name[i], (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-                center_x = (rects.right() + rects.left())/2
+                    cv2.rectangle(small_frame, (rects.left(), rects.top()), (rects.right(), rects.bottom()),
+                                  (255, 0, 0), 2)
+                    cv2.putText(small_frame, self.face_name[i], (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX,
+                                1, (255, 0, 0), 2, cv2.LINE_AA)
+                center_x = (rects.right() + rects.left()) / 2
                 self.face_center.append(center_x)
-            
+
             window = dlib.image_window()
             window.set_image(small_frame)
-            cv2.imwrite(self.path_to_package+'/face_recogs/recog.jpg', small_frame)
+            cv2.imwrite(self.path_to_package + '/face_recogs/recog.jpg', small_frame)
 
             print("Face Recognized: ", self.face_name)
             print("Face centers: ", self.face_center)
             print("People in the photo: ", len(img_detected))
             return len(img_detected)
 
-    def recog(self, data, nome_main):
+    def start(self, data, nome_main):
         self.load_data()
         self.center_place = 0.0
-        #Get image from topic
+        # Get image from topic
         small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
-        time.sleep(1)   
-    
+        time.sleep(1)
+
         num_faces = self.recognize(small_frame)
-        
+
+        name = ''
         center = 0.0
         if nome_main == '':
             while self.center_place == 0.0:
-                self.find_sit(small_frame)
+                self.find_sit()
                 self.recognize(self.cam_image)
-            for name_known in self.known_name:  
+            for name_known in self.known_name:
                 if name_known in self.face_name:
                     center = self.face_center[self.face_name.index(name_known)]
                     name = self.face_name[self.face_name.index(name_known)]
                     print("Pessoa conhecida encontrada")
                     print(self.center_place)
-                    self.recog = 1  
+                    self.recog = 1
         elif nome_main in self.face_name:
             name = nome_main
             center = self.face_center[self.face_name.index(nome_main)]
@@ -226,12 +234,13 @@ class FaceRecog():
     def handler(self, request):
         self.recog = 0
         while self.recog == 0:
-            self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
-            name, center, num, empty = self.recog(self.cam_image, request.name)
+            self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
+            name, center, num, empty = self.start(self.cam_image, request.name)
             self.rate.sleep()
             return name, float(center), num, empty
         cv2.destroyAllWindows()
-    
+
+
 if __name__ == '__main__':
     rospy.init_node('face_recog', log_level=rospy.INFO)
     FaceRecog()
