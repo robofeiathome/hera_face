@@ -15,7 +15,6 @@ from geometry_msgs.msg import Twist
 
 
 class FaceRecog:
-    # cuidado para nao ter imagem com tamanhos diferentes ou cameras diferentes, pois o reconhecimento nao vai funcionar
     recog = 0
 
     def __init__(self):
@@ -88,7 +87,6 @@ class FaceRecog:
         return results[0].boxes
 
     def find_sit(self):
-        ##print('FIND SIT CHEGUEI')
         boxes = self.predict()
 
         while len(boxes) == 0:
@@ -112,10 +110,8 @@ class FaceRecog:
                 boxes = self.predict()
 
     def find_empty_place(self, boxes):
-        #print('EMPTY PLACE CHEGUEI')
         for k, c in enumerate(boxes.cls):
             box = boxes[k].xyxy[0]
-            ##print(box)
             obj_class = self.yolo.names[int(c)]
             print(obj_class)
 
@@ -123,7 +119,6 @@ class FaceRecog:
 
             if self.face_center:
                 for i, face_name in enumerate(self.face_name):
-                    ##print(face_name)
                     if face_name in self.known_name:
                         found = True
                         print('box0:', box[0])
@@ -149,7 +144,6 @@ class FaceRecog:
                         media_x = (box[0] + box[2]) / 2
                         self.center_place = (box[0] + media_x) / 2
             else:
-                ##print("aqui")
                 if obj_class == 'chair':
                     self.center_place = (box[0] + box[2]) / 2
                 elif obj_class == 'couch':
@@ -199,14 +193,12 @@ class FaceRecog:
         window.set_image(small_frame)
         cv2.imwrite(self.path_to_package + '/face_recogs/recog.jpg', small_frame)
 
-        ##print("Face Recognized: ", self.face_name)
-        ##print("Face centers: ", self.face_center)
-        ##print("People in the photo: ", len(img_detected))
         return len(img_detected)
 
     def start(self, data, nome_main):
         self.load_data()
         self.center_place = 0.0
+
         # Get image from topic
         small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
         time.sleep(1)
@@ -217,13 +209,11 @@ class FaceRecog:
         center = 0.0
         if nome_main == '':
             self.find_sit()
-            #self.recognize(self.cam_image)
             print(self.center_place)
             self.recog = 1
         elif nome_main in self.face_name:
             name = nome_main
             center = self.face_center[self.face_name.index(nome_main)]
-            ##print('Pessoa desejada encontrada')
             self.recog = 1
         else:
             name = 'face'
