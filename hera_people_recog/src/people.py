@@ -67,12 +67,12 @@ class FaceRecog():
         vel_cmd.angular.z = velocidade
         self.pub_cmd_vel.publish(vel_cmd)
 
-    def predict():
+    def predict(self):
         small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
         results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56,57], show=True)
         return results[0].boxes
     
-    def find_sit(self, small_frame):
+    def find_sit(self):
         print('FIND SIT CHEGUEI')
         boxes = self.predict()
         while len(boxes) == 0:
@@ -157,7 +157,7 @@ class FaceRecog():
         #Check if there are people
         if len(img_detected) == 0:
             rospy.loginfo("No face detected")
-            self.find_sit(small_frame)
+            self.find_sit()
             return '', 0.0, len(img_detected), self.center_place
         else:
             faces = dlib.full_object_detections()
