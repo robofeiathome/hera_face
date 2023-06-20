@@ -230,7 +230,7 @@ class FaceRecog:
             self.recog = 1
         else:
             name = 'face'
-            center = '0.0'
+            center = 0.0
             self.recog = 1
         return name, center, num_faces, self.center_place
 
