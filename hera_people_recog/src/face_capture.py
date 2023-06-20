@@ -16,12 +16,12 @@ from sensor_msgs import point_cloud2 as pc2
 from sensor_msgs.msg import Image, PointCloud2
 from hera_face.srv import face_capture
 
-class FaceCapture():
 
+class FaceCapture:
     recog = 0
 
     def __init__(self):
-        
+
         rospy.Service('face_captures', face_capture, self.handler)
 
         rospy.loginfo("Start FaceRecogniser Init process...")
@@ -35,7 +35,7 @@ class FaceCapture():
         rospy.loginfo("Start camera suscriber...")
         self.topic = "/usb_cam/image_raw"
         self._check_cam_ready()
-        self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
+        self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
 
         self._global_frame = "kinect_one_optical"
@@ -45,20 +45,20 @@ class FaceCapture():
         rospy.loginfo('Ready to detect!')
 
     def _check_cam_ready(self):
-      self.cam_image = None
-      while self.cam_image is None and not rospy.is_shutdown():
-         try:
-               self.cam_image = rospy.wait_for_message(self.topic, Image, timeout=1.0)
-               rospy.logdebug("Current "+self.topic+" READY=>" + str(self.cam_image))
+        self.cam_image = None
 
-         except:
-               rospy.logerr("Current "+self.topic+" not ready yet, retrying.")
+        while self.cam_image is None and not rospy.is_shutdown():
+            try:
+                self.cam_image = rospy.wait_for_message(self.topic, Image, timeout=1.0)
+                rospy.logdebug("Current " + self.topic + " READY=>" + str(self.cam_image))
 
-    def camera_callback(self,data):
+            except:
+                rospy.logerr("Current " + self.topic + " not ready yet, retrying.")
+
+    def camera_callback(self, data):
         self.cam_image = data
-        
 
-    def recognise(self,data,request):
+    def recognise(self, data, request):
 
         # Get a reference to webcam #0 (the default one)
         try:
@@ -67,7 +67,6 @@ class FaceCapture():
         except CvBridgeError as e:
             print(e)
 
-        
         # face_locations = []
         small_frame = cv2.resize(video_capture, (0, 0), fx=1, fy=1)
 
@@ -76,24 +75,23 @@ class FaceCapture():
 
         # Find all the faces and face encodings in the current frame of video
         face_locations = detector(small_frame, 1)
-        
+
         if len(face_locations) <= 0:
             rospy.logwarn("No Faces found, please get closers...")
-        
-#
+
+        #
         else:
             writeStatus = cv2.imwrite(str(image_path) + request.name + '.jpg', small_frame)
-#
+            #
             if writeStatus is True:
-                rospy.loginfo('Face '+request.name+' saved succeeded!')
-        
+                rospy.loginfo('Face ' + request.name + ' saved succeeded!')
+
                 rospy.loginfo(str(image_path) + request.name + '.jpg')
                 self.recog = 1
                 return writeStatus
             else:
                 rospy.loginfo('Face not saved!')
                 return writeStatus
-                
 
     def handler(self, request):
         self.recog = 0
@@ -101,10 +99,8 @@ class FaceCapture():
         while self.recog == 0:
             resp = self.recognise(self.cam_image, request)
             self.rate.sleep()
+            return resp
 
-            if resp is True:
-                return "Salved!"
-        
         cv2.destroyAllWindows()
 
 

@@ -50,11 +50,11 @@ class FaceCheck():
          except:
                rospy.logerr("Current "+self.topic+" not ready yet, retrying.")
 
-    def camera_callback(self,data):
+    def camera_callback(self, data):
         self.cam_image = data
         
 
-    def face_check(self,data):
+    def face_check(self, data):
         # Get a reference to webcam #0 (the default one)
         print("Start face_check")
         try:
@@ -86,11 +86,7 @@ class FaceCheck():
         while self.detect == 0:
             resp = self.face_check(self.cam_image)
             self.rate.sleep()
-            if resp == True:
-                return "True"
-
-            else:
-                return "False"
+            return resp
         
         cv2.destroyAllWindows()
 
