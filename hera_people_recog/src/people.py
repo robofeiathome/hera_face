@@ -90,11 +90,14 @@ class FaceRecog:
     def find_sit(self):
         print('FIND SIT CHEGUEI')
         boxes = self.predict()
+
         while len(boxes) == 0:
             self.spin(-0.4)
             boxes = self.predict()
+
         self.spin(0)
         self.center_place = None
+
         while True:
             if len(boxes) > 0:
                 self.spin(0)
@@ -154,53 +157,49 @@ class FaceRecog:
         self.face_center = []
         self.face_name = []
         img_detected = self.detector(small_frame, 1)
-        # Check if there are people
+
         if len(img_detected) == 0:
             rospy.loginfo("No face detected")
             self.find_sit()
-            return '', 0.0, len(img_detected), self.center_place
-        else:
-            faces = dlib.full_object_detections()
-            for detection in img_detected:
-                faces.append(self.sp(small_frame, detection))
-            align_img = dlib.get_face_chips(small_frame, faces)
-            img_rep = np.array(self.model.compute_face_descriptor(align_img))
-            # --------------------------------------------------------------------------------
-            # Match known faces with current faces
-            for i in range(0, len(img_detected)):
-                name = 'Face'
-                for _ in range(0, len(self.known_face)):
-                    euclidean_dist = list(np.linalg.norm(self.known_face - img_rep[i], axis=1) <= 0.62)
-                    if True in euclidean_dist:
-                        fst = euclidean_dist.index(True)
-                        name = self.known_name[fst]
-                    else:
-                        continue
-                self.face_name.insert(i, name)
-            # --------------------------------------------------------------------------
-            # Plot boxes
-            for i, rects in enumerate(img_detected):
-                if self.face_name[i] in self.known_name:
-                    cv2.rectangle(small_frame, (rects.left(), rects.top()), (rects.right(), rects.bottom()),
-                                  (0, 255, 0), 2)
-                    cv2.putText(small_frame, self.face_name[i], (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX,
-                                1, (0, 255, 0), 2, cv2.LINE_AA)
-                else:
-                    cv2.rectangle(small_frame, (rects.left(), rects.top()), (rects.right(), rects.bottom()),
-                                  (255, 0, 0), 2)
-                    cv2.putText(small_frame, self.face_name[i], (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX,
-                                1, (255, 0, 0), 2, cv2.LINE_AA)
-                center_x = (rects.right() + rects.left()) / 2
-                self.face_center.append(center_x)
-
-            window = dlib.image_window()
-            window.set_image(small_frame)
-            cv2.imwrite(self.path_to_package + '/face_recogs/recog.jpg', small_frame)
-
-            print("Face Recognized: ", self.face_name)
-            print("Face centers: ", self.face_center)
-            print("People in the photo: ", len(img_detected))
             return len(img_detected)
+
+        faces = dlib.full_object_detections()
+        for detection in img_detected:
+            faces.append(self.sp(small_frame, detection))
+        align_img = dlib.get_face_chips(small_frame, faces)
+        img_rep = np.array(self.model.compute_face_descriptor(align_img))
+
+        for i in range(len(img_detected)):
+            name = 'Face'
+            for j in range(len(self.known_face)):
+                euclidean_dist = list(np.linalg.norm(self.known_face - img_rep[i], axis=1) <= 0.62)
+                if True in euclidean_dist:
+                    fst = euclidean_dist.index(True)
+                    name = self.known_name[fst]
+                else:
+                    continue
+            self.face_name.insert(i, name)
+
+        for i, rects in enumerate(img_detected):
+            if self.face_name[i] in self.known_name:
+                cv2.rectangle(small_frame, (rects.left(), rects.top()), (rects.right(), rects.bottom()), (0, 255, 0), 2)
+                cv2.putText(small_frame, self.face_name[i], (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                            (0, 255, 0), 2, cv2.LINE_AA)
+            else:
+                cv2.rectangle(small_frame, (rects.left(), rects.top()), (rects.right(), rects.bottom()), (255, 0, 0), 2)
+                cv2.putText(small_frame, self.face_name[i], (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                            (255, 0, 0), 2, cv2.LINE_AA)
+            center_x = (rects.right() + rects.left()) / 2
+            self.face_center.append(center_x)
+
+        window = dlib.image_window()
+        window.set_image(small_frame)
+        cv2.imwrite(self.path_to_package + '/face_recogs/recog.jpg', small_frame)
+
+        print("Face Recognized: ", self.face_name)
+        print("Face centers: ", self.face_center)
+        print("People in the photo: ", len(img_detected))
+        return len(img_detected)
 
     def start(self, data, nome_main):
         self.load_data()
