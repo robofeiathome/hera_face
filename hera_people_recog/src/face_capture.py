@@ -33,7 +33,7 @@ class FaceCapture():
 
         self.bridge_object = CvBridge()
         rospy.loginfo("Start camera suscriber...")
-        self.topic = "/zed_node/left_raw/image_raw_color"
+        self.topic = "/usb_cam/image_raw"
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
@@ -69,7 +69,7 @@ class FaceCapture():
 
         
         # face_locations = []
-        small_frame = cv2.resize(video_capture, (0, 0), fx=0.5, fy=0.5)
+        small_frame = cv2.resize(video_capture, (0, 0), fx=1, fy=1)
 
         image_path = os.path.join(self.path_to_package + '/face_images/')
         detector = dlib.get_frontal_face_detector()
