@@ -202,7 +202,9 @@ class FaceRecog():
         
         center = 0.0
         if nome_main == '':
-            self.find_sit(small_frame)
+            while self.center_place == 0.0:
+                self.find_sit(small_frame)
+                self.recognize(self.cam_image)
             for name_known in self.known_name:  
                 if name_known in self.face_name:
                     center = self.face_center[self.face_name.index(name_known)]
