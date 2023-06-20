@@ -48,33 +48,31 @@ class FaceRecog:
 
     def load_data(self):
         self.detector = dlib.get_frontal_face_detector()
-        self.sp = dlib.shape_predictor(self.path_to_package + "/src/shape_predictor_5_face_landmarks.dat")
+        self.sp = dlib.shape_predictor(os.path.join(self.path_to_package, "src/shape_predictor_5_face_landmarks.dat"))
         self.model = dlib.face_recognition_model_v1(
-            self.path_to_package + "/src/dlib_face_recognition_resnet_model_v1.dat")
-        self.people_dir = self.path_to_package + '/face_images/'
+            os.path.join(self.path_to_package, "src/dlib_face_recognition_resnet_model_v1.dat"))
+        self.people_dir = os.path.join(self.path_to_package, 'face_images')
         files = fnmatch.filter(os.listdir(self.people_dir), '*.jpg')
 
         self.known_face = []
         self.known_name = []
-        for f in range(0, len(files)):
-            for _ in range(0, 100):
-                img = dlib.load_rgb_image(self.people_dir + files[f])
-                img_detected = self.detector(img, 1)
-                bouding_boxes = []
-                if len(img_detected) > 0:
-                    for i, rects in enumerate(img_detected):
-                        area = rects.top() * rects.left()
-                        bouding_boxes.append(area)
-                    biggest_box = bouding_boxes.index(max(bouding_boxes))
-                    img_shape = self.sp(img, img_detected[biggest_box])
-                    align_img = dlib.get_face_chip(img, img_shape)
-                    img_rep = np.array(self.model.compute_face_descriptor(align_img))
-                    self.known_face.append(img_rep)
-                    self.known_name.append(files[f].split('.')[0])
-                    break
-                else:
-                    rospy.loginfo("No face detected in image: " + files[f])
-                    break
+        for file_name in files:
+            img = dlib.load_rgb_image(os.path.join(self.people_dir, file_name))
+            img_detected = self.detector(img, 1)
+            bounding_boxes = []
+
+            if len(img_detected) > 0:
+                for i, rects in enumerate(img_detected):
+                    area = rects.top() * rects.left()
+                    bounding_boxes.append(area)
+                biggest_box = bounding_boxes.index(max(bounding_boxes))
+                img_shape = self.sp(img, img_detected[biggest_box])
+                align_img = dlib.get_face_chip(img, img_shape)
+                img_rep = np.array(self.model.compute_face_descriptor(align_img))
+                self.known_face.append(img_rep)
+                self.known_name.append(file_name.split('.')[0])
+            else:
+                rospy.loginfo("No face detected in image: " + file_name)
 
     def spin(self, velocidade=-0.4):
         vel_cmd = Twist()
