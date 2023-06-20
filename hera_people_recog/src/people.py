@@ -32,6 +32,18 @@ class FaceRecog():
 
         self.pub_cmd_vel = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
+    
+    def _check_cam_ready(self):
+      self.cam_image = None
+      while self.cam_image is None and not rospy.is_shutdown():
+         try:
+               self.cam_image = rospy.wait_for_message(self.topic, Image, timeout=1.0)
+               rospy.logdebug("Current "+self.topic+" READY=>" + str(self.cam_image))
+         except:
+               rospy.logerr("Current "+self.topic+" not ready yet, retrying.")
+
+    def camera_callback(self,data):
+        self.cam_image = data
 
     def load_data(self):
         self.detector = dlib.get_frontal_face_detector()
@@ -91,7 +103,6 @@ class FaceRecog():
                 break
             else:
                 self.spin(-0.4)
-                small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
                 boxes = self.predict()
 
     def find_empty_place(self, boxes):
@@ -131,26 +142,8 @@ class FaceRecog():
                 elif obj_class == 'couch':
                     media_x = (box[0] + box[2]) / 2
                     self.center_place = (box[0] + media_x) / 2
-    
-    def _check_cam_ready(self):
-      self.cam_image = None
-      while self.cam_image is None and not rospy.is_shutdown():
-         try:
-               self.cam_image = rospy.wait_for_message(self.topic, Image, timeout=1.0)
-               rospy.logdebug("Current "+self.topic+" READY=>" + str(self.cam_image))
-         except:
-               rospy.logerr("Current "+self.topic+" not ready yet, retrying.")
 
-    def camera_callback(self,data):
-        self.cam_image = data
-
-    def recognize(self, data, nome_main):
-        self.load_data()
-        self.center_place = 0.0
-        #Get image from topic
-        small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
-        time.sleep(1)   
-    
+    def recognize(self, small_frame):
         self.face_center = []
         self.face_name = []
         img_detected = self.detector(small_frame, 1)
@@ -196,33 +189,43 @@ class FaceRecog():
             print("Face Recognized: ", self.face_name)
             print("Face centers: ", self.face_center)
             print("People in the photo: ", len(img_detected))
-        #--------------------------------------------------------------------------
-            center = 0.0
-            if nome_main == '':
-                self.find_sit(small_frame)
-                for name_known in self.known_name:  
-                    if name_known in self.face_name:
-                        center = self.face_center[self.face_name.index(name_known)]
-                        name = self.face_name[self.face_name.index(name_known)]
-                        print("Pessoa conhecida encontrada")
-                        print(self.center_place)
-                        self.recog = 1  
-            elif nome_main in self.face_name:
-                name = nome_main
-                center = self.face_center[self.face_name.index(nome_main)]
-                print('Pessoa desejada encontrada')
-                self.recog = 1
-            else:
-                name = 'face'
-                center = '0.0'
-                self.recog = 1
-            return name, center, len(img_detected), self.center_place
+            return len(img_detected)
+
+    def recog(self, data, nome_main):
+        self.load_data()
+        self.center_place = 0.0
+        #Get image from topic
+        small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
+        time.sleep(1)   
+    
+        num_faces = self.recognize(small_frame)
+        
+        center = 0.0
+        if nome_main == '':
+            self.find_sit(small_frame)
+            for name_known in self.known_name:  
+                if name_known in self.face_name:
+                    center = self.face_center[self.face_name.index(name_known)]
+                    name = self.face_name[self.face_name.index(name_known)]
+                    print("Pessoa conhecida encontrada")
+                    print(self.center_place)
+                    self.recog = 1  
+        elif nome_main in self.face_name:
+            name = nome_main
+            center = self.face_center[self.face_name.index(nome_main)]
+            print('Pessoa desejada encontrada')
+            self.recog = 1
+        else:
+            name = 'face'
+            center = '0.0'
+            self.recog = 1
+        return name, center, num_faces, self.center_place
 
     def handler(self, request):
         self.recog = 0
         while self.recog == 0:
             self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
-            name, center, num, empty = self.recognize(self.cam_image, request.name)
+            name, center, num, empty = self.recog(self.cam_image, request.name)
             self.rate.sleep()
             return name, float(center), num, empty
         cv2.destroyAllWindows()
