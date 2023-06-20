@@ -115,12 +115,15 @@ class FaceRecog:
             print(box)
             obj_class = self.yolo.names[int(c)]
             print(obj_class)
-            found = 0
-            if len(self.face_center) > 0:
-                for i in range(0, len(self.face_center)):
-                    print(self.face_name)
-                    if self.face_name[i] in self.known_name:
-                        found = 1
+
+            found = False
+
+            if self.face_center:
+                for i, face_name in enumerate(self.face_name):
+                    print(face_name)
+                    if face_name in self.known_name:
+                        found = True
+
                         if obj_class == 'chair' and not (box[0] < self.face_center[i] < box[2]):
                             self.center_place = (box[0] + box[2]) / 2
                             print("lugar 0")
@@ -132,7 +135,8 @@ class FaceRecog:
                             elif not (media_x < self.face_center[i] < box[2]):
                                 self.center_place = (media_x + box[2]) / 2
                                 print('lugar 2')
-                if found == 0:
+
+                if not found:
                     if obj_class == 'chair':
                         self.center_place = (box[0] + box[2]) / 2
                     elif obj_class == 'couch':
