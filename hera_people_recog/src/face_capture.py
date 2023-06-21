@@ -78,8 +78,6 @@ class FaceCapture:
 
         if len(face_locations) <= 0:
             rospy.logwarn("No Faces found, please get closers...")
-
-        #
         else:
             writeStatus = cv2.imwrite(str(image_path) + request.name + '.jpg', small_frame)
             #
@@ -88,10 +86,10 @@ class FaceCapture:
 
                 rospy.loginfo(str(image_path) + request.name + '.jpg')
                 self.recog = 1
-                return writeStatus
+                return True
             else:
                 rospy.loginfo('Face not saved!')
-                return writeStatus
+                return False
 
     def handler(self, request):
         self.recog = 0
