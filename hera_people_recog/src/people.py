@@ -24,6 +24,13 @@ class FaceRecog:
         rospack = rospkg.RosPack()
 
         self.center_place = None
+        self.detector = dlib.get_frontal_face_detector()
+        self.sp = dlib.shape_predictor(os.path.join(self.path_to_package, "src/shape_predictor_5_face_landmarks.dat"))
+        self.model = dlib.face_recognition_model_v1(
+            os.path.join(self.path_to_package, "src/dlib_face_recognition_resnet_model_v1.dat"))
+        self.people_dir = os.path.join(self.path_to_package, 'face_images')
+        self.face_center = []
+        self.face_name = []
 
         self.path_to_package = rospack.get_path('hera_face')
         self.yolo = YOLO(self.path_to_package + '/src/coco.pt')
@@ -49,11 +56,6 @@ class FaceRecog:
         self.cam_image = data
 
     def load_data(self):
-        self.detector = dlib.get_frontal_face_detector()
-        self.sp = dlib.shape_predictor(os.path.join(self.path_to_package, "src/shape_predictor_5_face_landmarks.dat"))
-        self.model = dlib.face_recognition_model_v1(
-            os.path.join(self.path_to_package, "src/dlib_face_recognition_resnet_model_v1.dat"))
-        self.people_dir = os.path.join(self.path_to_package, 'face_images')
         files = fnmatch.filter(os.listdir(self.people_dir), '*.jpg')
 
         self.known_face = []
@@ -114,6 +116,8 @@ class FaceRecog:
                 self.spin(-0.4)
                 time.sleep(3)
 
+        return self.center_place
+
     def find_empty_place(self, boxes):
         center_place = None
         print('Looking for an empty place')
@@ -132,15 +136,12 @@ class FaceRecog:
                         print('box2:', box[2])
                         print('center:', self.face_center[i])
 
-                        if obj_class == 'chair' and not (box[0] < self.face_center[i] < box[2]):
                             center_place = (box[0] + box[2]) / 2
                             print("lugar 0")
                         elif obj_class == 'couch':
                             media_x = (box[0] + box[2]) / 2
-                            if not (box[0] < self.face_center[i] < media_x):
                                 center_place = (box[0] + media_x) / 2
                                 print('lugar 1')
-                            elif not (media_x < self.face_center[i] < box[2]):
                                 center_place = (media_x + box[2]) / 2
                                 print('lugar 2')
 
@@ -162,8 +163,6 @@ class FaceRecog:
         return center_place
 
     def recognize(self, small_frame):
-        self.face_center = []
-        self.face_name = []
         img_detected = self.detector(small_frame, 1)
 
         if len(img_detected) == 0:
