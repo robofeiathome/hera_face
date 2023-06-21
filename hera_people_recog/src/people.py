@@ -98,11 +98,11 @@ class FaceRecog:
 
         while True:
             print('Second while')
+            boxes = self.predict()
             if len(boxes) > 0:
                 print('box > 0')
                 self.spin(0)
                 time.sleep(1)
-                boxes = self.predict()
                 self.find_empty_place(boxes)
 
             if self.center_place is not None:
@@ -112,7 +112,6 @@ class FaceRecog:
                 print('Spin and detect')
                 self.spin(-0.4)
                 time.sleep(3)
-                boxes = self.predict()
 
     def find_empty_place(self, boxes):
         print('Looking for an empty place')
