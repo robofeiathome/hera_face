@@ -111,6 +111,7 @@ class FaceRecog:
             else:
                 print('Spin and detect')
                 self.spin(-0.4)
+                time.sleep(3)
                 boxes = self.predict()
 
     def find_empty_place(self, boxes):
