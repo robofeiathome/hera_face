@@ -17,11 +17,11 @@ from sensor_msgs import point_cloud2 as pc2
 from sensor_msgs.msg import Image, PointCloud2
 from hera_face.srv import face_check
 
+
 class FaceCheck():
     detect = 0
 
     def __init__(self):
-        
         rospy.Service('face_check', face_check, self.handler)
 
         rospy.loginfo("Start FaceRecogniser Init process...")
@@ -32,7 +32,7 @@ class FaceCheck():
         rospy.loginfo("Start camera suscriber...")
         self.topic = "/zed_node/left_raw/image_raw_color"
         self._check_cam_ready()
-        self.image_sub = rospy.Subscriber(self.topic,Image,self.camera_callback)
+        self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
         rospy.loginfo("Finished FaceCheck Init process...Ready")
 
         # create detector
@@ -41,18 +41,16 @@ class FaceCheck():
         rospy.loginfo('Ready to detect!')
 
     def _check_cam_ready(self):
-      self.cam_image = None
-      while self.cam_image is None and not rospy.is_shutdown():
-         try:
-               self.cam_image = rospy.wait_for_message(self.topic, Image, timeout=1.0)
-               rospy.logdebug("Current "+self.topic+" READY=>" + str(self.cam_image))
-
-         except:
-               rospy.logerr("Current "+self.topic+" not ready yet, retrying.")
+        self.cam_image = None
+        while self.cam_image is None and not rospy.is_shutdown():
+            try:
+                self.cam_image = rospy.wait_for_message(self.topic, Image, timeout=1.0)
+                rospy.logdebug("Current " + self.topic + " READY=>" + str(self.cam_image))
+            except:
+                rospy.logerr("Current " + self.topic + " not ready yet, retrying.")
 
     def camera_callback(self, data):
         self.cam_image = data
-        
 
     def face_check(self, data):
         # Get a reference to webcam #0 (the default one)
@@ -69,7 +67,7 @@ class FaceCheck():
         detector = dlib.get_frontal_face_detector()
         face_locations = detector(small_frame, 1)
         print(face_locations)
-       
+
         if len(face_locations) <= 0:
             rospy.logwarn("No Faces found, please get closer...")
             return False
@@ -78,7 +76,6 @@ class FaceCheck():
             rospy.loginfo("Face found, welcome!")
             self.detect = 1
             return True
-                
 
     def handler(self, request):
         self.detect = 0
@@ -87,7 +84,7 @@ class FaceCheck():
             resp = self.face_check(self.cam_image)
             self.rate.sleep()
             return resp
-        
+
         cv2.destroyAllWindows()
 
 
