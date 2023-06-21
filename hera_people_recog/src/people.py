@@ -23,6 +23,8 @@ class FaceRecog:
         self.rate = rospy.Rate(5)
         rospack = rospkg.RosPack()
 
+        self.center_place = None
+
         self.path_to_package = rospack.get_path('hera_face')
         self.yolo = YOLO(self.path_to_package + '/src/coco.pt')
         self.bridge_object = CvBridge()
@@ -94,7 +96,6 @@ class FaceRecog:
             boxes = self.predict()
 
         self.spin(0)
-        self.center_place = None
 
         while True:
             print('Second while')
@@ -103,7 +104,7 @@ class FaceRecog:
                 print('box > 0')
                 self.spin(0)
                 time.sleep(1)
-                self.find_empty_place(boxes)
+                self.center_place = self.find_empty_place(boxes)
 
             if self.center_place is not None:
                 print('break')
@@ -114,6 +115,7 @@ class FaceRecog:
                 time.sleep(3)
 
     def find_empty_place(self, boxes):
+        center_place = None
         print('Looking for an empty place')
         for k, c in enumerate(boxes.cls):
             box = boxes[k].xyxy[0]
@@ -131,31 +133,33 @@ class FaceRecog:
                         print('center:', self.face_center[i])
 
                         if obj_class == 'chair' and not (box[0] < self.face_center[i] < box[2]):
-                            self.center_place = (box[0] + box[2]) / 2
+                            center_place = (box[0] + box[2]) / 2
                             print("lugar 0")
                         elif obj_class == 'couch':
                             media_x = (box[0] + box[2]) / 2
                             if not (box[0] < self.face_center[i] < media_x):
-                                self.center_place = (box[0] + media_x) / 2
+                                center_place = (box[0] + media_x) / 2
                                 print('lugar 1')
                             elif not (media_x < self.face_center[i] < box[2]):
-                                self.center_place = (media_x + box[2]) / 2
+                                center_place = (media_x + box[2]) / 2
                                 print('lugar 2')
 
                 if not found:
                     print('not Found condition')
                     if obj_class == 'chair':
-                        self.center_place = (box[0] + box[2]) / 2
+                        center_place = (box[0] + box[2]) / 2
                     elif obj_class == 'couch':
                         media_x = (box[0] + box[2]) / 2
-                        self.center_place = (box[0] + media_x) / 2
+                        center_place = (box[0] + media_x) / 2
             else:
                 print('Do not recognized face')
                 if obj_class == 'chair':
-                    self.center_place = (box[0] + box[2]) / 2
+                    center_place = (box[0] + box[2]) / 2
                 elif obj_class == 'couch':
                     media_x = (box[0] + box[2]) / 2
-                    self.center_place = (box[0] + media_x) / 2
+                    center_place = (box[0] + media_x) / 2
+
+        return center_place
 
     def recognize(self, small_frame):
         self.face_center = []
@@ -204,7 +208,6 @@ class FaceRecog:
 
     def start(self, data, nome_main):
         self.load_data()
-        self.center_place = 0.0
 
         # Get image from topic
         small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
