@@ -82,12 +82,14 @@ class FaceRecog:
     def predict(self):
         small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
         results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56, 57])
+        print('Len boxes: ', len(results[0].boxes))
         return results[0].boxes
 
     def find_sit(self):
         boxes = self.predict()
 
         while len(boxes) == 0:
+            print('First while')
             self.spin(-0.4)
             boxes = self.predict()
 
@@ -95,19 +97,24 @@ class FaceRecog:
         self.center_place = None
 
         while True:
+            print('Second while')
             if len(boxes) > 0:
+                print('box > 0')
                 self.spin(0)
                 time.sleep(1)
                 boxes = self.predict()
                 self.find_empty_place(boxes)
 
             if self.center_place is not None:
+                print('break')
                 break
             else:
+                print('Spin and detect')
                 self.spin(-0.4)
                 boxes = self.predict()
 
     def find_empty_place(self, boxes):
+        print('Looking for an empty place')
         for k, c in enumerate(boxes.cls):
             box = boxes[k].xyxy[0]
             obj_class = self.yolo.names[int(c)]
@@ -136,12 +143,14 @@ class FaceRecog:
                                 print('lugar 2')
 
                 if not found:
+                    print('not Found condition')
                     if obj_class == 'chair':
                         self.center_place = (box[0] + box[2]) / 2
                     elif obj_class == 'couch':
                         media_x = (box[0] + box[2]) / 2
                         self.center_place = (box[0] + media_x) / 2
             else:
+                print('Do not recognized face')
                 if obj_class == 'chair':
                     self.center_place = (box[0] + box[2]) / 2
                 elif obj_class == 'couch':
