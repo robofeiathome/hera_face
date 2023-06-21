@@ -81,7 +81,7 @@ class FaceRecog:
 
     def predict(self):
         small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
-        results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56, 57])
+        results = self.yolo.predict(source=small_frame, conf=0.5, device=0, classes=[56, 57], save=True)
         print('Len boxes: ', len(results[0].boxes))
         return results[0].boxes
 
