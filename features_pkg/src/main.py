@@ -7,7 +7,7 @@ from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.models import load_model
 from PIL import Image, ImageFile
 from u2net_test import mask
-from features_pkg.srv import features
+from Features_pkg.srv import Features
 from sensor_msgs.msg import Image as imgmsg
 from cv_bridge import CvBridge
 from colorthief import ColorThief
@@ -44,7 +44,7 @@ class bonusFeatures:
         self.neck = None 
         self.topic = "/usb_cam/image_raw"
         self.rate = rospy.Rate(5)
-        rospy.Service('features', features, self.handler)
+        rospy.Service('features', Features, self.handler)
         self.img_sub = rospy.Subscriber(self.topic,imgmsg,self.camera_callback)
 
     def body_points(self,frame):
@@ -299,7 +299,7 @@ class bonusFeatures:
         self.recog = 0
         rospy.loginfo("Service called!")
         rospy.loginfo("Requested..")
-        time.sleep(5)
+        time.sleep(2)
         while self.recog == 0:
             self.img_sub = rospy.Subscriber(self.topic,imgmsg,self.camera_callback)
             mask, glasses, shirt, pants = self.features()
