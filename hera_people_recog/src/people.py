@@ -114,7 +114,6 @@ class FaceRecog:
             else:
                 print('Spin and detect')
                 self.spin(-0.4)
-                time.sleep(3)
 
         return self.center_place
 
@@ -213,7 +212,6 @@ class FaceRecog:
 
         # Get image from topic
         small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
-        time.sleep(1)
 
         num_faces = self.recognize(small_frame)
 
