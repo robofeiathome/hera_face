@@ -23,15 +23,6 @@ class FaceRecog:
         self.rate = rospy.Rate(5)
         rospack = rospkg.RosPack()
 
-        self.center_place = None
-        self.detector = dlib.get_frontal_face_detector()
-        self.sp = dlib.shape_predictor(os.path.join(self.path_to_package, "src/shape_predictor_5_face_landmarks.dat"))
-        self.model = dlib.face_recognition_model_v1(
-            os.path.join(self.path_to_package, "src/dlib_face_recognition_resnet_model_v1.dat"))
-        self.people_dir = os.path.join(self.path_to_package, 'face_images')
-        self.face_center = []
-        self.face_name = []
-
         self.path_to_package = rospack.get_path('hera_face')
         self.yolo = YOLO(self.path_to_package + '/src/coco.pt')
         self.bridge_object = CvBridge()
@@ -40,6 +31,15 @@ class FaceRecog:
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
 
+        self.center_place = None
+        self.detector = dlib.get_frontal_face_detector()
+        self.sp = dlib.shape_predictor(os.path.join(self.path_to_package, "src/shape_predictor_5_face_landmarks.dat"))
+        self.model = dlib.face_recognition_model_v1(
+            os.path.join(self.path_to_package, "src/dlib_face_recognition_resnet_model_v1.dat"))
+        self.people_dir = os.path.join(self.path_to_package, 'face_images')
+        self.face_center = []
+        self.face_name = []
+        
         self.pub_cmd_vel = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
 
