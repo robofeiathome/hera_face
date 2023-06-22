@@ -45,8 +45,6 @@ class FaceCapture:
         self.cam_image = data
 
     def capture(self, data, request):
-        video_capture = None
-
         try:
             video_capture = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
         except CvBridgeError as e:
