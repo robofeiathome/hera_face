@@ -78,7 +78,8 @@ class FaceCapture:
         while self.recog == 0:
             resp = self.capture(self.cam_image, request)
             self.rate.sleep()
-            return resp
+            if self.recog == 1:
+                return resp
 
         cv2.destroyAllWindows()
 
