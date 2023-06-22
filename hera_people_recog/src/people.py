@@ -136,15 +136,15 @@ class FaceRecog:
                         print('box2:', box[2])
                         print('center:', self.face_center[i])
 
-                        if obj_class == 'chair' and not all(box[0] < center_face < box[2] for center_face in self.face_center):
+                        if obj_class == 'chair' and not any(box[0] < center_face < box[2] for center_face in self.face_center):
                             center_place = (box[0] + box[2]) / 2
                             print("lugar 0")
                         elif obj_class == 'couch':
                             media_x = (box[0] + box[2]) / 2
-                            if not all(box[0] < center_face < media_x for center_face in self.face_center):
+                            if not any(box[0] < center_face < media_x for center_face in self.face_center):
                                 center_place = (box[0] + media_x) / 2
                                 print('lugar 1')
-                            elif not all(media_x < center_face < box[2] for center_face in self.face_center):
+                            elif not any(media_x < center_face < box[2] for center_face in self.face_center):
                                 center_place = (media_x + box[2]) / 2
                                 print('lugar 2')
 
