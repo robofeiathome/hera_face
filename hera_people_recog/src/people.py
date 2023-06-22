@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 import os
 import rospy
+from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
 import rospkg
-import fnmatch
-import cv2
-import time
-from cv_bridge import CvBridge
 from hera_face.srv import face_list
+
+from cv_bridge import CvBridge
 from ultralytics import YOLO
 import dlib
 import numpy as np
-from geometry_msgs.msg import Twist
+import fnmatch
+import cv2
+import time
 
 
 class FaceRecog:
@@ -27,7 +28,7 @@ class FaceRecog:
         self.yolo = YOLO(self.path_to_package + '/src/coco.pt')
         self.bridge_object = CvBridge()
         rospy.loginfo("Start camera suscriber...")
-        self.topic = "/zed_node/left_raw/image_raw_color"
+        self.topic = "/usb_cam/image_raw"
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
 
@@ -39,7 +40,9 @@ class FaceRecog:
         self.people_dir = os.path.join(self.path_to_package, 'face_images')
         self.face_center = []
         self.face_name = []
-        
+        self.known_face = []
+        self.known_name = []
+
         self.pub_cmd_vel = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
 
@@ -58,8 +61,6 @@ class FaceRecog:
     def load_data(self):
         files = fnmatch.filter(os.listdir(self.people_dir), '*.jpg')
 
-        self.known_face = []
-        self.known_name = []
         for file_name in files:
             img = dlib.load_rgb_image(os.path.join(self.people_dir, file_name))
             img_detected = self.detector(img, 1)
@@ -85,7 +86,7 @@ class FaceRecog:
 
     def predict(self):
         small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
-        results = self.yolo.predict(source=small_frame, conf=0.65, device=0, classes=[56, 57], save=True)
+        results = self.yolo.predict(source=small_frame, conf=0.65, device=0, classes=[56, 57])
         print('Len boxes: ', len(results[0].boxes))
         return results[0].boxes
 
@@ -210,7 +211,6 @@ class FaceRecog:
     def start(self, data, nome_main):
         self.load_data()
 
-        # Get image from topic
         small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
 
         num_faces = self.recognize(small_frame)

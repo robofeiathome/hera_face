@@ -1,44 +1,30 @@
 #!/usr/bin/env python3
-
-import sys
-import os
 import rospy
 from sensor_msgs.msg import Image
-import rospkg
-import cv2
-import face_recognition
-import numpy
-import tf
-import dlib
-
-from os.path import expanduser
-from cv_bridge import CvBridge, CvBridgeError
-from sensor_msgs import point_cloud2 as pc2
-from sensor_msgs.msg import Image, PointCloud2
 from hera_face.srv import face_check
 
+import cv2
+import dlib
+from cv_bridge import CvBridge, CvBridgeError
 
-class FaceCheck():
+class FaceCheck:
     detect = 0
 
     def __init__(self):
         rospy.Service('face_check', face_check, self.handler)
 
         rospy.loginfo("Start FaceRecogniser Init process...")
-        # get an instance of RosPack with the default search paths
         self.rate = rospy.Rate(5)
 
         self.bridge_object = CvBridge()
         rospy.loginfo("Start camera suscriber...")
-        self.topic = "/zed_node/left_raw/image_raw_color"
+        self.topic = "/usb_cam/image_raw"
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
-        rospy.loginfo("Finished FaceCheck Init process...Ready")
 
-        # create detector
         self._bridge = CvBridge()
 
-        rospy.loginfo('Ready to detect!')
+        rospy.loginfo("Finished FaceCheck Init process, ready to check")
 
     def _check_cam_ready(self):
         self.cam_image = None
@@ -53,17 +39,13 @@ class FaceCheck():
         self.cam_image = data
 
     def face_check(self, data):
-        # Get a reference to webcam #0 (the default one)
-        print("Start face_check")
         try:
-            # We select bgr8 because its the OpneCV encoding by default
             video_capture = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
         except CvBridgeError as e:
             print(e)
 
         small_frame = cv2.resize(video_capture, (0, 0), fx=0.5, fy=0.5)
 
-        # Find all the faces and face encodings in the current frame of video
         detector = dlib.get_frontal_face_detector()
         face_locations = detector(small_frame, 1)
         print(face_locations)
