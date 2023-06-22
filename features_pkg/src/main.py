@@ -7,7 +7,7 @@ from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.models import load_model
 from PIL import Image, ImageFile
 from u2net_test import mask
-from Features_pkg.srv import Features
+from features_pkg.srv import Features
 from sensor_msgs.msg import Image as imgmsg
 from cv_bridge import CvBridge
 from colorthief import ColorThief
@@ -42,6 +42,8 @@ class bonusFeatures:
         self.cint = None
         self.knee = None
         self.neck = None 
+        self.bridge = CvBridge()
+
         self.topic = "/usb_cam/image_raw"
         self.rate = rospy.Rate(5)
         rospy.Service('features', Features, self.handler)
@@ -128,15 +130,22 @@ class bonusFeatures:
         image = np.reshape(image,[1,224,224,3]) 
         predict = model.predict(image)[0]
 
-        if predict[0] > predict[1]:
+        if predict[0] < predict[1]:
             return "Mask"
         else:
             return "No Mask"
     
     def ifglasses(self,path):
+
         detector = dlib.get_frontal_face_detector()
         predictor = dlib.shape_predictor('src/hera_face/features_pkg/src/shape_predictor_68_face_landmarks.dat')
         img = dlib.load_rgb_image(path)
+        face = detector(img,1)
+        print(face)
+        while len(face)<=0:
+            rospy.logwarn("No faces found")
+            rect = detector(img,1)
+            
         rect = detector(img)[0]
         sp = predictor(img, rect)
         landmarks = np.array([[p.x, p.y] for p in sp.parts()])
@@ -193,11 +202,11 @@ class bonusFeatures:
         
         try:
             if self.point[8][1] != null:
-                self.cint = self.point[8][1] +25
+                self.cint = self.point[8][1] 
         except:
             try:
                 if self.point[11][1] != null:
-                    self.cint = self.point[11][1]+25
+                    self.cint = self.point[11][1]
             except:
                 self.cint = int(((frame.shape[1]-self.starty)/12)*7)
 
@@ -210,6 +219,7 @@ class bonusFeatures:
   
                 
         modelo = cv2.imread('src/hera_face/features_pkg/src/results/removed_background.png')
+        modelo = modelo[0:480,200:440]
 
         for x in range(3):
             if x == 0:
@@ -229,6 +239,7 @@ class bonusFeatures:
     def color(self,path):
         for i in range(2):
             color = self.findColor(path,i)
+            print(color)
             if 'black' in color:
                 if(self.isitblack(path, i)):  
                     return 'Black'
@@ -237,7 +248,7 @@ class bonusFeatures:
 
     def findColor(self,path,index):
         color_thief = ColorThief(path)
-        dominant_color = color_thief.get_palette(color_count=3)
+        dominant_color = color_thief.get_palette(color_count=2)
         closest_color = None
         min_distance = float('inf')
         for color_name, rgb in webcolors.CSS3_NAMES_TO_HEX.items():
@@ -265,15 +276,14 @@ class bonusFeatures:
             count = color[1]
             percentage = (count / pixel_count) * 100
             pclist.append(percentage)
-
-        if (pclist[index])>90 :
+        #print(pclist[index])
+        if (pclist[index])>85:
             return True
         else:
             return False
 
     
     def features(self):
-        self.bridge = CvBridge()
         frame = self.bridge.imgmsg_to_cv2(self.cam_image,desired_encoding='rgb8')
         time.sleep(1)
         
@@ -286,7 +296,7 @@ class bonusFeatures:
             if parts == 'src/hera_face/features_pkg/src/images/cabeca.png':
                 mask = self.ifmask('src/hera_face/features_pkg/src/images/cabeca.png')
                 glasses = self.ifglasses('src/hera_face/features_pkg/src/images/cabeca.png')
-
+                    
             output_color = self.color(parts)
             body_colors.append(output_color)
 
