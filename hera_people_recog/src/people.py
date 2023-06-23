@@ -30,7 +30,7 @@ class FaceRecog:
         rospy.loginfo("Start camera suscriber...")
         self.topic = "/zed_node/left_raw/image_raw_color"
         self._check_cam_ready()
-        self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
+        self.image_sub = rospy.Subscriber(self.topic, Image, self._camera_callback)
 
         self.center_place = None
         self.detector = dlib.get_frontal_face_detector()
@@ -55,10 +55,10 @@ class FaceRecog:
             except:
                 rospy.logerr("Current " + self.topic + " not ready yet, retrying.")
 
-    def camera_callback(self, data):
+    def _camera_callback(self, data):
         self.cam_image = data
 
-    def load_data(self):
+    def _load_data(self):
         files = fnmatch.filter(os.listdir(self.people_dir), '*.jpg')
 
         for file_name in files:
@@ -79,39 +79,45 @@ class FaceRecog:
             else:
                 rospy.loginfo("No face detected in image: " + file_name)
 
-    def spin(self, velocidade=-0.4):
+    def _calculate_media(self, x1, x2):
+        return (x1 + x2) / 2
+
+    def _spin(self, velocidade=-0.4):
         vel_cmd = Twist()
         vel_cmd.angular.z = velocidade
         self.pub_cmd_vel.publish(vel_cmd)
 
-    def predict(self):
+    def _predict(self):
         small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
         results = self.yolo.predict(source=small_frame, conf=0.3, device=0, classes=[56, 57])
         print('Len boxes: ', len(results[0].boxes))
         return results[0].boxes
 
-    def find_sit(self):
+    def _update_boxes(self):
+        return self._predict()
+
+    def _find_sit(self):
         while True:
             print('single loop')
-            boxes = self.predict()
+            boxes = self._predict()
             if len(boxes) > 0:
                 print('box > 0')
-                self.spin(0)
+                self._spin(0)
                 time.sleep(1)
-                boxes = self.predict()
-                self.center_place = self.find_empty_place(boxes)
+                boxes = self._update_boxes()
+                self.center_place = self._find_empty_place(boxes)
 
             if self.center_place is not None:
                 print('break')
                 break
             else:
-                print('Spin and detect')
-                self.spin(-0.4)
+                print('_spin and detect')
+                self._spin(-0.4)
                 time.sleep(1)
 
         return self.center_place
 
-    def find_empty_place(self, boxes):
+    def _find_empty_place(self, boxes):
         center_place = None
         print('Looking for an empty place')
         for k, c in enumerate(boxes.cls):
@@ -130,40 +136,40 @@ class FaceRecog:
                         print('center:', self.face_center[i])
 
                         if obj_class == 'chair' and not any(box[0] < center_face < box[2] for center_face in self.face_center):
-                            center_place = (box[0] + box[2]) / 2
+                            center_place = self._calculate_media(box[0], box[2])
                             print("lugar 0")
                         elif obj_class == 'couch':
-                            media_x = (box[0] + box[2]) / 2
+                            media_x = self._calculate_media(box[0], box[2])
                             if not any(box[0] < center_face < media_x for center_face in self.face_center):
-                                center_place = (box[0] + media_x) / 2
+                                center_place = self._calculate_media(box[0], media_x)
                                 print('lugar 1')
                             elif not any(media_x < center_face < box[2] for center_face in self.face_center):
-                                center_place = (media_x + box[2]) / 2
+                                center_place = self._calculate_media(media_x, box[2])
                                 print('lugar 2')
 
                 if not found:
                     print('not Found condition')
                     if obj_class == 'chair':
-                        center_place = (box[0] + box[2]) / 2
+                        center_place = self._calculate_media(box[0], box[2])
                     elif obj_class == 'couch':
                         media_x = (box[0] + box[2]) / 2
-                        center_place = (box[0] + media_x) / 2
+                        center_place = self._calculate_media(box[0], media_x)
             else:
                 print('Do not recognized face')
                 if obj_class == 'chair':
-                    center_place = (box[0] + box[2]) / 2
+                    center_place = self._calculate_media(box[0], box[2])
                 elif obj_class == 'couch':
-                    media_x = (box[0] + box[2]) / 2
-                    center_place = (box[0] + media_x) / 2
+                    media_x = self._calculate_media(box[0], box[2])
+                    center_place = self._calculate_media(box[0], media_x)
 
         return center_place
 
-    def recognize(self, small_frame):
+    def _recognize(self, small_frame):
         img_detected = self.detector(small_frame, 1)
 
         if len(img_detected) == 0:
             rospy.loginfo("No face detected")
-            self.find_sit()
+            self._find_sit()
             return len(img_detected)
 
         faces = dlib.full_object_detections()
@@ -202,16 +208,16 @@ class FaceRecog:
         return len(img_detected)
 
     def start(self, data, nome_main):
-        self.load_data()
+        self._load_data()
 
         small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
 
-        num_faces = self.recognize(small_frame)
+        num_faces = self._recognize(small_frame)
 
         name = ''
         center = 0.0
         if nome_main == '':
-            self.find_sit()
+            self._find_sit()
             print(self.center_place)
             self.recog = 1
         elif nome_main in self.face_name:
@@ -227,7 +233,7 @@ class FaceRecog:
     def handler(self, request):
         self.recog = 0
         while self.recog == 0:
-            self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
+            self.image_sub = rospy.Subscriber(self.topic, Image, self._camera_callback)
             name, center, num, empty = self.start(self.cam_image, request.name)
             self.rate.sleep()
             return name, float(center), num, empty
