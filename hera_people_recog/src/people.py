@@ -127,22 +127,36 @@ class FaceRecog:
         return self.center_place
 
     def find_empty_place(self, boxes):
-        center_place = None
         print('Looking for an empty place')
-        for box in boxes:
-            center_place = self._get_center_place(box, center_place)
-        return center_place
+        if len(boxes) == 0:
+            print("No boxes detected, spinning...")
+            self.spin(-0.4)
+            return None
 
-    def _get_center_place(self, box, center_place):
+        for box in boxes:
+            center_place = self._get_center_place(box)
+
+            if center_place is not None and center_place not in self.checked_places:
+                self.checked_places.append(center_place)
+                return center_place
+
+        # If all places are checked, spin again to find a new place
+        print("All places are checked, spinning...")
+        self.spin(-0.4)
+        return None
+
+    def _get_center_place(self, box):
         obj_class = self.yolo.names[int(box.cls)]
         print(obj_class)
+
         if self.face_center:
-            center_place = self._check_known_faces(box, obj_class, center_place)
+            center_place = self._check_known_faces(box, obj_class)
         else:
             center_place = self._calculate_center_place(box, obj_class)
+
         return center_place
 
-    def _check_known_faces(self, box, obj_class, center_place):
+    def _check_known_faces(self, box, obj_class, center_place=None):
         for i, face_name in enumerate(self.face_name):
             if face_name in self.known_name:
                 center_place = self._calculate_center_place(box, obj_class, i, face_name)
@@ -217,6 +231,7 @@ class FaceRecog:
         cv2.putText(frame, name, (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2, cv2.LINE_AA)
 
     def start(self, data, nome_main):
+        self.checked_places = []
         self.load_data()
 
         small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
