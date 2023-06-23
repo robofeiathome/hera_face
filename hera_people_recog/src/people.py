@@ -98,6 +98,7 @@ class FaceRecog:
 
     def _find_sit(self):
         while True:
+
             print('single loop')
             boxes = self._predict()
             if len(boxes) > 0:
@@ -106,6 +107,11 @@ class FaceRecog:
                 time.sleep(1)
                 boxes = self._update_boxes()
                 self.center_place = self._find_empty_place(boxes)
+                if self.center_place is None:
+
+                    self._spin(-0.4)
+                    time.sleep(2)
+                    self._spin(0)
 
             if self.center_place is not None:
                 print('break')
@@ -113,7 +119,7 @@ class FaceRecog:
             else:
                 print('_spin and detect')
                 self._spin(-0.4)
-                time.sleep(1)
+                time.sleep(2)
 
         return self.center_place
 
