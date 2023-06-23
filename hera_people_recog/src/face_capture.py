@@ -23,7 +23,7 @@ class FaceCapture:
         self.path_to_package = rospack.get_path('hera_face')
 
         self.bridge_object = CvBridge()
-        self.topic = "/usb_cam/image_raw"
+        self.topic = "/zed_node/left_raw/image_raw_color"
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
 
