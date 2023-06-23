@@ -82,7 +82,7 @@ class FaceRecog:
     def _calculate_media(self, x1, x2):
         return (x1 + x2) / 2
 
-    def _spin(self, velocidade=-0.4):
+    def _spin(self, velocidade=-0.4, sleep_time=0.0):
         vel_cmd = Twist()
         vel_cmd.angular.z = velocidade
         self.pub_cmd_vel.publish(vel_cmd)
@@ -98,28 +98,20 @@ class FaceRecog:
 
     def _find_sit(self):
         while True:
-
             print('single loop')
             boxes = self._predict()
             if len(boxes) > 0:
                 print('box > 0')
-                self._spin(0)
-                time.sleep(1)
+                self._spin(0, 1)
                 boxes = self._update_boxes()
                 self.center_place = self._find_empty_place(boxes)
-                if self.center_place is None:
-
-                    self._spin(-0.4)
-                    time.sleep(2)
-                    self._spin(0)
 
             if self.center_place is not None:
                 print('break')
                 break
             else:
                 print('_spin and detect')
-                self._spin(-0.4)
-                time.sleep(2)
+                self._spin(-0.4, 2)
 
         return self.center_place
 
@@ -132,7 +124,6 @@ class FaceRecog:
             print(obj_class)
 
             found = False
-
             if self.face_center:
                 for i, face_name in enumerate(self.face_name):
                     if face_name in self.known_name:
