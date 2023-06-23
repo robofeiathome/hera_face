@@ -107,6 +107,7 @@ class FaceRecog:
             else:
                 print('Spin and detect')
                 self.spin(-0.4)
+                time.sleep(1)
 
         return self.center_place
 
