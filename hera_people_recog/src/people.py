@@ -91,17 +91,8 @@ class FaceRecog:
         return results[0].boxes
 
     def find_sit(self):
-        boxes = self.predict()
-
-        while len(boxes) == 0:
-            print('First while')
-            self.spin(-0.4)
-            boxes = self.predict()
-
-        self.spin(0)
-
         while True:
-            print('Second while')
+            print('single loop')
             boxes = self.predict()
             if len(boxes) > 0:
                 print('box > 0')
