@@ -98,6 +98,7 @@ class FaceRecog:
                 print('box > 0')
                 self.spin(0)
                 time.sleep(1)
+                boxes = self.predict()
                 self.center_place = self.find_empty_place(boxes)
 
             if self.center_place is not None:
