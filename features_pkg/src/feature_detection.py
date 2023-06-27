@@ -17,26 +17,36 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image as Im
 import time
 from features_pkg.srv import Features
-from mtcnn import MTCNN
-import rospack
+import rospkg
 
 
-cats = ['shirt, blouse', 'top, t-shirt, sweatshirt', 'sweater', 'cardigan', 'jacket', 'vest', 'pants', 'shorts', 'skirt', 'coat', 'dress', 'jumpsuit', 'cape', 'glasses', 'hat', 'headband, head covering, hair accessory', 'tie', 'glove', 'watch', 'belt', 'leg warmer', 'tights, stockings', 'sock', 'shoe', 'bag, wallet', 'scarf', 'umbrella', 'hood', 'collar', 'lapel', 'epaulette', 'sleeve', 'pocket', 'neckline', 'buckle', 'zipper', 'applique', 'bead', 'bow', 'flower', 'fringe', 'ribbon', 'rivet', 'ruffle', 'sequin', 'tassel']
+cats = ['shirt, blouse', 'top, t-shirt, sweatshirt', 'sweater', 'cardigan', 'jacket', 'vest', 'pants', 'shorts', 'skirt', 'coat', 'dress', 'jumpsuit', 'cape', 'glasses', 'hat', 'hair accessory', 'tie', 'glove', 'watch', 'belt', 'leg warmer', 'tights, stockings', 'sock', 'shoe', 'bag, wallet', 'scarf', 'umbrella', 'hood', 'collar', 'lapel', 'epaulette', 'sleeve', 'pocket', 'neckline', 'buckle', 'zipper', 'applique', 'bead', 'bow', 'flower', 'fringe', 'ribbon', 'rivet', 'ruffle', 'sequin', 'tassel']
 COLORS =[[0.000, 0.447, 0.741], [0.850, 0.325, 0.098], [0.929, 0.694, 0.125],[0.494, 0.184, 0.556], [0.466, 0.674, 0.188], [0.301, 0.745, 0.933]]
 rospack =rospkg.RosPack()
-directory = rospack.get_pack('features_pkg')
-directory = directory + 'src/'
+directory = rospack.get_path('features_pkg')
+directory = directory + '/src/'
+
+
 class features():
 
     def __init__(self):
+        rospy.Service('feature_detection', Features, self.handler)
 
         self.bridge = CvBridge()
-        self.topic = '/zed_node/left_raw/image_raw_colorhandler' 
+        self.topic = '/zed_node/left_raw/image_raw_color' #/usb_cam/image_raw
         self.rate=rospy.Rate(5)
-        rospy.Service('feature_detection', Features, self.)
+        self._check_cam_ready()
         self.img_sub = rospy.Subscriber(self.topic, Im, self.camera_callback)
 
-        
+    def _check_cam_ready(self):
+      self.cam_img = None
+      while self.cam_img is None and not rospy.is_shutdown():
+         try:
+               self.cam_img = rospy.wait_for_message(self.topic, Im, timeout=1.0)
+               rospy.logdebug("Current "+self.topic+" READY=>" + str(self.cam_img))
+         except:
+               rospy.logerr("Current "+self.topic+" not ready yet, retrying.")
+
     def camera_callback(self,data):
         self.cam_img = data
         
@@ -70,6 +80,7 @@ class features():
             return 'Glasses'
         else:
             return 'No glasses'
+
 
     def fix_channels(self,t):
         if len(t.shape) == 2:
@@ -125,8 +136,7 @@ class features():
         bboxes_scaled = self.rescale_bboxes(outputs.pred_boxes[0, keep].cpu(), image.size)
 
         self.plot_results(image, probas[keep], bboxes_scaled)
-         
-
+        
 
     def colorName(self,path):
         color_thief = ColorThief(path)
@@ -177,33 +187,41 @@ class features():
         frame = self.bridge.imgmsg_to_cv2(self.cam_img, desired_encoding='bgr8')
         time.sleep(1)
        
-        cv2.imwrite(directory+'/base/img.png', frame)
-        path = directory+'/base/img.png'
+        cv2.imwrite(directory+'base/img.png', frame)
+        path = directory+'base/img.png'
 
         self.inferencing(path)
         out = ''
-        for clothes in glob.glob(directory+'/results/*'):
+        for clothes in glob.glob(directory+'results/*'):
             color = self.colorName(clothes)
             name = clothes.split('results/')[1].split('.')[0]
             out += str(name + ' ' + color + '/')
 
-        if directory+'/results/shoe.png' not in glob.glob(directory+'/results/*'):
-            out += 'No shoe'
+        if directory+'results/shoe.png' not in glob.glob(directory+'results/*'):
+            out += 'No shoe/'
 
-        out = out + '/' + self.ifglasses(directory+"/base/img.png")
+        if directory+'results/hat.png' not in glob.glob(directory+'results/*') and directory+'results/cap.png' not in glob.glob(directory+'results/*') \
+        and directory+'results/hair accessory.png' not in glob.glob(directory+'results/*'):
+            out += 'No head accessory/'
+
+        out = out + self.ifglasses(directory+"base/img.png")
         return out
     
+
     def handler(self, request):
         self.recog = 0
         rospy.loginfo("Service called!")
         rospy.loginfo("Requested..")
+
         time.sleep(3)
+        
         while self.recog == 0:
             self.img_sub = rospy.Subscriber(self.topic,Im,self.camera_callback)
             output = self.main()
             self.rate.sleep()
             return output
         cv2.destroyAllWindows()
+
 
 if __name__ == '__main__':
     rospy.init_node('feature_detection')
