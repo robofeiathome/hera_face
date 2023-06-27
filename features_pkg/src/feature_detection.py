@@ -20,7 +20,7 @@ from features_pkg.srv import Features
 import rospkg
 
 
-cats = ['shirt, blouse', 'top, t-shirt, sweatshirt', 'sweater', 'cardigan', 'jacket', 'vest', 'pants', 'shorts', 'skirt', 'coat', 'dress', 'jumpsuit', 'cape', 'glasses', 'hat', 'hair accessory', 'tie', 'glove', 'watch', 'belt', 'leg warmer', 'tights, stockings', 'sock', 'shoe', 'bag, wallet', 'scarf', 'umbrella', 'hood', 'collar', 'lapel', 'epaulette', 'sleeve', 'pocket', 'neckline', 'buckle', 'zipper', 'applique', 'bead', 'bow', 'flower', 'fringe', 'ribbon', 'rivet', 'ruffle', 'sequin', 'tassel']
+cats = ['blouse', 'top', 'sweater', 'cardigan', 'jacket', 'vest', 'pants', 'shorts', 'skirt', 'coat', 'dress', 'jumpsuit', 'cape', 'glasses', 'hat', 'hair accessory', 'tie', 'glove', 'watch', 'belt', 'leg warmer', 'tights, stockings', 'sock', 'shoe', 'bag, wallet', 'scarf', 'umbrella', 'hood', 'collar', 'lapel', 'epaulette', 'sleeve', 'pocket', 'neckline', 'buckle', 'zipper', 'applique', 'bead', 'bow', 'flower', 'fringe', 'ribbon', 'rivet', 'ruffle', 'sequin', 'tassel']
 COLORS =[[0.000, 0.447, 0.741], [0.850, 0.325, 0.098], [0.929, 0.694, 0.125],[0.494, 0.184, 0.556], [0.466, 0.674, 0.188], [0.301, 0.745, 0.933]]
 rospack =rospkg.RosPack()
 directory = rospack.get_path('features_pkg')
@@ -77,9 +77,9 @@ class features():
         edges_center = edges.T[(int(len(edges.T)/2))]
 
         if 255 in edges_center:
-            return 'Glasses'
+            return 'uses glasses'
         else:
-            return 'No glasses'
+            return 'no glasses'
 
 
     def fix_channels(self,t):
@@ -192,19 +192,20 @@ class features():
 
         self.inferencing(path)
         out = ''
+
+        if directory+'results/hat.png' not in glob.glob(directory+'results/*') and \
+        directory+'results/cap.png' not in glob.glob(directory+'results/*') \
+        and directory+'results/hair accessory.png' not in glob.glob(directory+'results/*'):
+            out = 'This guest has no head accessory and '
+        else: 
+            out = 'This guest wears'
+
+        out = out +self.ifglasses(directory+"base/img.png")+'. They are wearing:'
+
         for clothes in glob.glob(directory+'results/*'):
             color = self.colorName(clothes)
             name = clothes.split('results/')[1].split('.')[0]
-            out += str(name + ' ' + color + '/')
-
-        if directory+'results/shoe.png' not in glob.glob(directory+'results/*'):
-            out += 'No shoe/'
-
-        if directory+'results/hat.png' not in glob.glob(directory+'results/*') and directory+'results/cap.png' not in glob.glob(directory+'results/*') \
-        and directory+'results/hair accessory.png' not in glob.glob(directory+'results/*'):
-            out += 'No head accessory/'
-
-        out = out + self.ifglasses(directory+"base/img.png")
+            out= out +str(color + ' ' + name + '.')
         return out
     
 
