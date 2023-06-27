@@ -16,22 +16,24 @@ import rospy
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image as Im
 import time
-import os
 from features_pkg.srv import Features
 from mtcnn import MTCNN
+import rospack
 
 
 cats = ['shirt, blouse', 'top, t-shirt, sweatshirt', 'sweater', 'cardigan', 'jacket', 'vest', 'pants', 'shorts', 'skirt', 'coat', 'dress', 'jumpsuit', 'cape', 'glasses', 'hat', 'headband, head covering, hair accessory', 'tie', 'glove', 'watch', 'belt', 'leg warmer', 'tights, stockings', 'sock', 'shoe', 'bag, wallet', 'scarf', 'umbrella', 'hood', 'collar', 'lapel', 'epaulette', 'sleeve', 'pocket', 'neckline', 'buckle', 'zipper', 'applique', 'bead', 'bow', 'flower', 'fringe', 'ribbon', 'rivet', 'ruffle', 'sequin', 'tassel']
 COLORS =[[0.000, 0.447, 0.741], [0.850, 0.325, 0.098], [0.929, 0.694, 0.125],[0.494, 0.184, 0.556], [0.466, 0.674, 0.188], [0.301, 0.745, 0.933]]
-
-
+rospack =rospkg.RosPack()
+directory = rospack.get_pack('features_pkg')
+directory = directory + 'src/'
 class features():
 
     def __init__(self):
+
         self.bridge = CvBridge()
-        self.topic = '/usb_cam/image_raw' 
+        self.topic = '/zed_node/left_raw/image_raw_colorhandler' 
         self.rate=rospy.Rate(5)
-        rospy.Service('feature_detection', Features, self.handler)
+        rospy.Service('feature_detection', Features, self.)
         self.img_sub = rospy.Subscriber(self.topic, Im, self.camera_callback)
 
         
@@ -41,7 +43,7 @@ class features():
 
     def ifglasses(self,path):
         detector = dlib.get_frontal_face_detector()
-        predictor = dlib.shape_predictor('/home/robofei/Workspace/_gabi_test/catkin_bibi/src/hera_face/features_pkg/src/shape_predictor_68_face_landmarks.dat')
+        predictor = dlib.shape_predictor(directory+'shape_predictor_68_face_landmarks.dat')
         img = dlib.load_rgb_image(path)
         rect = detector(img,1)
         sp = predictor(img, rect[0])
@@ -52,9 +54,8 @@ class features():
             nose_bridge_x.append(landmarks[i][0])
             nose_bridge_y.append(landmarks[i][1])
 
-        ### x_min and x_max
         x_min = min(nose_bridge_x)
-        x_max = max(nose_bridge_x)### ymin (from top eyebrow coordinate),  ymax
+        x_max = max(nose_bridge_x)
         y_min = landmarks[20][1]
         y_max = landmarks[31][1]
         img2 = Image.open(path)
@@ -63,7 +64,6 @@ class features():
         img_blur = cv2.GaussianBlur(np.array(img2),(3,3), sigmaX=0, sigmaY=0)
         edges = cv2.Canny(image =img_blur, threshold1=100, threshold2=200)
         
-        #center strip
         edges_center = edges.T[(int(len(edges.T)/2))]
 
         if 255 in edges_center:
@@ -100,7 +100,7 @@ class features():
 
 
     def plot_results(self,pil_img, prob, boxes):
-        way = glob.glob('/home/robofei/Workspace/_gabi_test/catkin_bibi/src/hera_face/features_pkg/src/results/*')
+        way = glob.glob(directory+'results/*')
         for py_file in way:
             try:
                 os.remove(py_file)
@@ -114,19 +114,16 @@ class features():
                 if 'pants' in self.idx_to_text(cl):
                     xmin=(xmax+xmin)/2
                 img = pil_img.crop((xmin+10,ymin+10,xmax-10,ymax-10))
-                img.save('/home/robofei/Workspace/_gabi_test/catkin_bibi/src/hera_face/features_pkg/src/results/'+self.idx_to_text(cl)+'.png')
+                img.save(directory+'results/'+self.idx_to_text(cl)+'.png')
                 detec.append([self.idx_to_text(cl),[int(xmin),int(ymax),int(xmax),int(ymin)]])
 
 
     def visualize_predictions(self,image, outputs, threshold=0.8):
-        # keep only predictions with confidence >= threshold
         probas = outputs.logits.softmax(-1)[0, :, :-1]
         keep = probas.max(-1).values > threshold
 
-        # convert predicted boxes from [0; 1] to image scales
         bboxes_scaled = self.rescale_bboxes(outputs.pred_boxes[0, keep].cpu(), image.size)
 
-        # plot results
         self.plot_results(image, probas[keep], bboxes_scaled)
          
 
@@ -160,6 +157,7 @@ class features():
         outputs = self.model(**inputs)
         return outputs
     
+
     def inferencing(self,path):
         MODEL_NAME = "valentinafeve/yolos-fashionpedia"
 
@@ -179,26 +177,27 @@ class features():
         frame = self.bridge.imgmsg_to_cv2(self.cam_img, desired_encoding='bgr8')
         time.sleep(1)
        
-        cv2.imwrite('/home/robofei/Workspace/_gabi_test/catkin_bibi/src/hera_face/features_pkg/src/base/img.png', frame)
-        path = '/home/robofei/Workspace/_gabi_test/catkin_bibi/src/hera_face/features_pkg/src/base/img.png'
+        cv2.imwrite(directory+'/base/img.png', frame)
+        path = directory+'/base/img.png'
 
         self.inferencing(path)
         out = ''
-        for clothes in glob.glob('/home/robofei/Workspace/_gabi_test/catkin_bibi/src/hera_face/features_pkg/src/results/*'):
+        for clothes in glob.glob(directory+'/results/*'):
             color = self.colorName(clothes)
             name = clothes.split('results/')[1].split('.')[0]
             out += str(name + ' ' + color + '/')
 
-        if '/home/robofei/Workspace/_gabi_test/catkin_bibi/src/hera_face/features_pkg/src/results/shoe.png' not in glob.glob('/home/robofei/Workspace/_gabi_test/catkin_bibi/src/hera_face/features_pkg/src/results/*'):
+        if directory+'/results/shoe.png' not in glob.glob(directory+'/results/*'):
             out += 'No shoe'
-        out = out + '/' + self.ifglasses("/home/robofei/Workspace/_gabi_test/catkin_bibi/src/hera_face/features_pkg/src/base/img.png")
+
+        out = out + '/' + self.ifglasses(directory+"/base/img.png")
         return out
     
     def handler(self, request):
         self.recog = 0
         rospy.loginfo("Service called!")
         rospy.loginfo("Requested..")
-        time.sleep(2)
+        time.sleep(3)
         while self.recog == 0:
             self.img_sub = rospy.Subscriber(self.topic,Im,self.camera_callback)
             output = self.main()
