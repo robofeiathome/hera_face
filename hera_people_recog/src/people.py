@@ -34,7 +34,7 @@ class FaceRecog:
         self.yolo = YOLO(self.path_to_package + '/src/coco.pt')
         self.bridge_object = CvBridge()
         rospy.loginfo("Start camera suscriber...")
-        self.topic = "/zed_node/left_raw/image_raw_color"
+        self.topic = "/zed_node/right_raw/image_raw_color"
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
 
@@ -44,10 +44,6 @@ class FaceRecog:
         self.model = dlib.face_recognition_model_v1(
             os.path.join(self.path_to_package, "src/dlib_face_recognition_resnet_model_v1.dat"))
         self.people_dir = os.path.join(self.path_to_package, 'face_images')
-        self.face_center = []
-        self.face_name = []
-        self.known_face = []
-        self.known_name = []
 
         self.pub_cmd_vel = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
@@ -76,6 +72,8 @@ class FaceRecog:
         """
         Load data from the face_images directory. Processes the jpg files and extracts face representations.
         """
+        self.known_face = []
+        self.known_name = []
         files = fnmatch.filter(os.listdir(self.people_dir), '*.jpg')
         self._process_files(files)
 
@@ -127,7 +125,7 @@ class FaceRecog:
         align_img = dlib.get_face_chip(img, img_shape)
         img_rep = np.array(self.model.compute_face_descriptor(align_img))
         self.known_face.append(img_rep)
-        self.known_name.append(file_name.split('.')[0])
+        self.known_name.append(file_name.split('.')[0].lower())
 
     def spin(self, velocidade=-0.4):
         """
@@ -286,6 +284,9 @@ class FaceRecog:
         Returns:
             len(img_detected) (int): The number of detected faces.
         """
+        self.face_center = []
+        self.face_name = []
+
         img_detected = self.detector(small_frame, 1)
 
         if len(img_detected) == 0:
@@ -359,7 +360,11 @@ class FaceRecog:
             self.recog = 1
         elif nome_main in self.face_name:
             name = nome_main
-            center = self.face_center[self.face_name.index(nome_main)]
+            index = self.face_name.index(nome_main)
+            center = self.face_center[index]
+            print(self.face_center)
+            print(center)
+
             self.recog = 1
 
         return name, center, num_faces, self.center_place
