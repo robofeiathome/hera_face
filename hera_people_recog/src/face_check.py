@@ -2,38 +2,29 @@
 import rospy
 from sensor_msgs.msg import Image
 from hera_face.srv import face_check
-
 import cv2
 import dlib
 from cv_bridge import CvBridge, CvBridgeError
 
+
 class FaceCheck:
-    detect = 0
-
     def __init__(self):
-        rospy.Service('face_check', face_check, self.handler)
-
-        rospy.loginfo("Start FaceRecogniser Init process...")
-        self.rate = rospy.Rate(5)
-
         self.bridge_object = CvBridge()
-        rospy.loginfo("Start camera suscriber...")
         self.topic = "/zed_node/left_raw/image_raw_color"
-        self._check_cam_ready()
+        self.check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
-
-        self._bridge = CvBridge()
-
+        self.service = rospy.Service('face_check', face_check, self.handler)
+        self.rate = rospy.Rate(3)
         rospy.loginfo("Finished FaceCheck Init process, ready to check")
 
-    def _check_cam_ready(self):
+    def check_cam_ready(self):
         self.cam_image = None
         while self.cam_image is None and not rospy.is_shutdown():
             try:
                 self.cam_image = rospy.wait_for_message(self.topic, Image, timeout=1.0)
-                rospy.logdebug("Current " + self.topic + " READY=>" + str(self.cam_image))
+                rospy.logdebug(f"Current {self.topic} READY=>{str(self.cam_image)}")
             except:
-                rospy.logerr("Current " + self.topic + " not ready yet, retrying.")
+                rospy.logerr(f"Current {self.topic} not ready yet, retrying.")
 
     def camera_callback(self, data):
         self.cam_image = data
@@ -44,35 +35,28 @@ class FaceCheck:
         except CvBridgeError as e:
             print(e)
 
-        small_frame = cv2.resize(video_capture, (0, 0), fx=0.5, fy=0.5)
+        small_frame = cv2.resize(video_capture, (0, 0), fx=1, fy=1)
+        face_locations = dlib.get_frontal_face_detector()(small_frame, 1)
 
-        detector = dlib.get_frontal_face_detector()
-        face_locations = detector(small_frame, 1)
-        print(face_locations)
-
-        if len(face_locations) <= 0:
+        if not face_locations:
             rospy.logwarn("No Faces found, please get closer...")
             return False
 
-        else:
-            rospy.loginfo("Face found, welcome!")
-            self.detect = 1
-            return True
+        rospy.loginfo("Face found, welcome!")
+        return True
 
     def handler(self, request):
-        self.detect = 0
-
-        while self.detect == 0:
-            resp = self.face_check(self.cam_image)
+        while True:
+            if self.face_check(self.cam_image):
+                return True
             self.rate.sleep()
-            return resp
 
         cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
     rospy.init_node('face_check', log_level=rospy.INFO)
-    FaceCheck()
+    face_checker = FaceCheck()
 
     try:
         rospy.spin()
