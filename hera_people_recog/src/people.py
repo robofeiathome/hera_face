@@ -345,7 +345,6 @@ class FaceRecog:
         cv2.putText(frame, name, (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2, cv2.LINE_AA)
 
     def start(self, data, nome_main):
-        self.checked_places = []
         self.load_data()
 
         small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
