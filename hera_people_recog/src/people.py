@@ -24,7 +24,6 @@ class FaceRecog:
         Initializes necessary ROS parameters, services and publishers.
         Also, it sets up the face recognition model and other necessary parameters.
         """
-        self.checked_places = []
         rospy.Service('face_recog', face_list, self.handler)
         rospy.loginfo("Start FaceRecogniser Init process...")
         self.rate = rospy.Rate(5)
@@ -165,6 +164,8 @@ class FaceRecog:
 
         while True:
             print('Second while')
+            self.checked_places = []
+
             boxes = self.predict()
             if len(boxes) > 0:
                 print('box > 0')
@@ -346,6 +347,7 @@ class FaceRecog:
         cv2.putText(frame, name, (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2, cv2.LINE_AA)
 
     def start(self, data, nome_main):
+        nome_main = nome_main.lower()
         self.load_data()
 
         small_frame = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
