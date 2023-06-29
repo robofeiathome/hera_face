@@ -245,8 +245,7 @@ class FaceRecog:
         for i, face_name in enumerate(self.face_name):
             if face_name in self.known_name:
                 center_place = self._calculate_center_place(box, obj_class, i, face_name)
-            else:
-                center_place = self._calculate_center_place(box, obj_class)
+
         return center_place
 
     def _calculate_center_place(self, box, obj_class, index=None, face_name=None, center_place=None):
@@ -353,7 +352,7 @@ class FaceRecog:
 
         num_faces = self.recognize(small_frame)
 
-        name = ''
+        name = 'Face'
         center = 0.0
         if nome_main == '':
             self.find_sit()
@@ -363,10 +362,7 @@ class FaceRecog:
             name = nome_main
             center = self.face_center[self.face_name.index(nome_main)]
             self.recog = 1
-        else:
-            name = 'face'
-            center = 0.0
-            self.recog = 1
+
         return name, center, num_faces, self.center_place
 
     def handler(self, request):
