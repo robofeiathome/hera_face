@@ -19,6 +19,12 @@ class FaceRecog:
     recog = 0
 
     def __init__(self):
+        """
+        Constructor for the FaceRecog class.
+        Initializes necessary ROS parameters, services and publishers.
+        Also, it sets up the face recognition model and other necessary parameters.
+        """
+        self.checked_places = []
         rospy.Service('face_recog', face_list, self.handler)
         rospy.loginfo("Start FaceRecogniser Init process...")
         self.rate = rospy.Rate(5)
@@ -47,6 +53,9 @@ class FaceRecog:
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
 
     def _check_cam_ready(self):
+        """
+        Checks if the camera is ready by trying to get an image from the specified topic.
+        """
         self.cam_image = None
         while self.cam_image is None and not rospy.is_shutdown():
             try:
@@ -56,18 +65,37 @@ class FaceRecog:
                 rospy.logerr("Current " + self.topic + " not ready yet, retrying.")
 
     def camera_callback(self, data):
+        """
+        Callback function for the camera topic. Stores the received image data.
+        Args:
+            data (sensor_msgs.msg.Image): Image data received from the camera.
+        """
         self.cam_image = data
 
     def load_data(self):
+        """
+        Load data from the face_images directory. Processes the jpg files and extracts face representations.
+        """
         files = fnmatch.filter(os.listdir(self.people_dir), '*.jpg')
         self._process_files(files)
 
     def _process_files(self, files):
+        """
+        Processes the given files by loading the images and extracting face representations.
+        Args:
+            files (list): A list of file names to process.
+        """
         for file_name in files:
             img = dlib.load_rgb_image(os.path.join(self.people_dir, file_name))
             self._process_image(img, file_name)
 
     def _process_image(self, img, file_name):
+        """
+        Processes the given image by detecting faces and extracting the largest face.
+        Args:
+            img (np.array): The image to process.
+            file_name (str): The name of the file (used for logging purposes).
+        """
         img_detected = self.detector(img, 1)
         if not img_detected:
             rospy.loginfo("No face detected in image: " + file_name)
@@ -75,12 +103,26 @@ class FaceRecog:
         self._extract_biggest_face(img, img_detected, file_name)
 
     def _extract_biggest_face(self, img, img_detected, file_name):
+        """
+        Extracts the biggest face from the detected faces in an image.
+        Args:
+            img (np.array): The image containing the faces.
+            img_detected (list): A list of detected faces.
+            file_name (str): The name of the file (used for logging purposes).
+        """
         bounding_boxes = [rect.width() * rect.height() for rect in img_detected]
         biggest_box_index = bounding_boxes.index(max(bounding_boxes))
         biggest_box = img_detected[biggest_box_index]
         self._align_and_add_face(img, biggest_box, file_name)
 
     def _align_and_add_face(self, img, box, file_name):
+        """
+        Aligns and adds the face represented by the given bounding box to the known faces.
+        Args:
+            img (np.array): The image containing the face.
+            box (dlib.rectangle): The bounding box of the face.
+            file_name (str): The name of the file (used for logging purposes).
+        """
         img_shape = self.sp(img, box)
         align_img = dlib.get_face_chip(img, img_shape)
         img_rep = np.array(self.model.compute_face_descriptor(align_img))
@@ -88,17 +130,32 @@ class FaceRecog:
         self.known_name.append(file_name.split('.')[0])
 
     def spin(self, velocidade=-0.4):
+        """
+        Spins the robot at the given speed.
+        Args:
+            velocidade (float, optional): The speed at which to spin. Defaults to -0.4.
+        """
         vel_cmd = Twist()
         vel_cmd.angular.z = velocidade
         self.pub_cmd_vel.publish(vel_cmd)
 
     def predict(self):
+        """
+        Predicts the bounding boxes in the current frame using the YOLO object detection model.
+        Returns:
+            results[0].boxes (list): A list of predicted bounding boxes.
+        """
         small_frame = self.bridge_object.imgmsg_to_cv2(self.cam_image, desired_encoding="bgr8")
         results = self.yolo.predict(source=small_frame, conf=0.4, device=0, classes=56)
         print('Len boxes: ', len(results[0].boxes))
         return results[0].boxes
 
     def find_sit(self):
+        """
+        Finds an empty location by spinning and using object detection.
+        Returns:
+            center_place (float): The center of the found empty space.
+        """
         boxes = self.predict()
 
         while len(boxes) == 0:
@@ -127,6 +184,15 @@ class FaceRecog:
         return self.center_place
 
     def find_empty_place(self, boxes):
+        """
+         Find an empty place not occupied by any recognized faces.
+
+         Args:
+             boxes (List[dlib.rectangles]): List of bounding boxes detected in the frame.
+
+         Returns:
+             center_place (float): The center of the free space.
+         """
         print('Looking for an empty place')
         if len(boxes) == 0:
             print("No boxes detected, spinning...")
@@ -146,6 +212,15 @@ class FaceRecog:
         return None
 
     def _get_center_place(self, box):
+        """
+        Get the center of the free space for a given bounding box.
+
+        Args:
+            box (dlib.rectangles): Detected bounding box.
+
+        Returns:
+            center_place (float): The center of the free space.
+        """
         obj_class = self.yolo.names[int(box.cls)]
         print(obj_class)
 
@@ -157,6 +232,16 @@ class FaceRecog:
         return center_place
 
     def _check_known_faces(self, box, obj_class, center_place=None):
+        """
+        Check for known faces in the specified bounding box.
+
+        Args:
+            box (dlib.rectangles): Detected bounding box.
+            obj_class (str): The class of the object ('chair' or 'couch').
+
+        Returns:
+            center_place (float): The center of the free space.
+        """
         for i, face_name in enumerate(self.face_name):
             if face_name in self.known_name:
                 center_place = self._calculate_center_place(box, obj_class, i, face_name)
@@ -164,7 +249,17 @@ class FaceRecog:
                 center_place = self._calculate_center_place(box, obj_class)
         return center_place
 
-    def _calculate_center_place(self, box, obj_class, index=None, face_name=None):
+    def _calculate_center_place(self, box, obj_class, index=None, face_name=None, center_place=None):
+        """
+        Calculate the center of the free space for a given object class.
+
+        Args:
+            box (dlib.rectangles): Detected bounding box.
+            obj_class (str): The class of the object ('chair' or 'couch').
+
+        Returns:
+            center_place (float): The center of the free space.
+        """
         box = box.xyxy[0]
         if index is not None and face_name is not None:
             print('box0:', box[0])
@@ -181,9 +276,17 @@ class FaceRecog:
             elif not any(media_x < center_face < box[2] for center_face in self.face_center):
                 center_place = (media_x + box[2]) / 2
                 print('lugar 2')
+
         return center_place
 
     def recognize(self, small_frame):
+        """
+        Recognizes the faces in the given frame and draws bounding boxes around them.
+        Args:
+            small_frame (np.array): The frame in which to recognize faces.
+        Returns:
+            len(img_detected) (int): The number of detected faces.
+        """
         img_detected = self.detector(small_frame, 1)
 
         if len(img_detected) == 0:
@@ -216,6 +319,13 @@ class FaceRecog:
         return len(img_detected)
 
     def _get_face_name(self, img_rep):
+        """
+        Gets the name of the face represented by the given representation by comparing it with known faces.
+        Args:
+            img_rep (np.array): The face representation to identify.
+        Returns:
+            name (str): The name of the recognized face, or 'Face' if not recognized.
+        """
         name = 'Face'
         for j in range(len(self.known_face)):
             euclidean_dist = list(np.linalg.norm(self.known_face - img_rep, axis=1) <= 0.62)
@@ -227,6 +337,11 @@ class FaceRecog:
         return name
 
     def _draw_rectangle(self, frame, rects, color, name):
+        """
+                Draws a rectangle around the face in the frame and annotates it with the name.
+                Args:
+                    frame (np.array): The frame in which to draw the rectangle
+        """
         cv2.rectangle(frame, (rects.left(), rects.top()), (rects.right(), rects.bottom()), color, 2)
         cv2.putText(frame, name, (rects.left(), rects.top()), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2, cv2.LINE_AA)
 
