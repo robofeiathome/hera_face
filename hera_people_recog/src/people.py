@@ -126,7 +126,7 @@ class FaceRecog:
         self.known_face.append(img_rep)
         self.known_name.append(file_name.split('.')[0].lower())
 
-    def spin(self, velocidade=-0.4):
+    def spin(self, velocidade=0.4):
         """
         Spins the robot at the given speed.
         Args:
@@ -157,7 +157,7 @@ class FaceRecog:
 
         while len(boxes) == 0:
             print('First while')
-            self.spin(-0.4)
+            self.spin(0.4)
             boxes = self.predict()
 
         self.spin(0)
@@ -178,7 +178,7 @@ class FaceRecog:
                 break
             else:
                 print('Spin and detect')
-                self.spin(-0.4)
+                self.spin(0.4)
 
         return self.center_place
 
@@ -195,7 +195,7 @@ class FaceRecog:
         print('Looking for an empty place')
         if len(boxes) == 0:
             print("No boxes detected, spinning...")
-            self.spin(-0.4)
+            self.spin(0.4)
             return None
 
         for box in boxes:
@@ -207,7 +207,7 @@ class FaceRecog:
 
         # If all places are checked, spin again to find a new place
         print("All places are checked, spinning...")
-        self.spin(-0.4)
+        self.spin(0.4)
         return None
 
     def _get_center_place(self, box):
