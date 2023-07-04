@@ -130,7 +130,7 @@ class FaceRecog:
         """
         Spins the robot at the given speed.
         Args:
-            velocidade (float, optional): The speed at which to spin. Defaults to -0.4.
+            velocidade (float, optional): The speed at which to spin. Defaults to 0.4.
         """
         vel_cmd = Twist()
         vel_cmd.angular.z = velocidade
