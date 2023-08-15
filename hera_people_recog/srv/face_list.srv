@@ -3,4 +3,4 @@ string name
 string result
 float64 center
 int64 num
-int64 empty_place
+float64 empty_place
