@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+
+    <node name="face_recognition" pkg="hera_face" type="face_recog.py" output="screen">
+        <rosparam command="load" file="$(find hera_face)/config/main_cfg.yaml"/>
+    </node>
+    <!-- <node name="face_capture" pkg="hera_face" type="face_capture.py" output="screen">
+        <rosparam command="load" file="$(find hera_face)/config/main_cfg.yaml"/>
+    </node>
+    <node name="face_check" pkg="hera_face" type="face_check.py" output="screen">
+        <rosparam command="load" file="$(find hera_face)/config/main_cfg.yaml"/>
+    </node> -->
+
+</launch>

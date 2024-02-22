@@ -29,20 +29,26 @@ class FaceRecog:
         self.rate = rospy.Rate(5)
         rospack = rospkg.RosPack()
 
+        yolo_path = rospy.get_param('~yolo_path')
+        self.topic = rospy.get_param('~camera_topic')
+        sp_path = rospy.get_param('~sp_path')
+        model_path = rospy.get_param('~model_path')
+        self.log_path = rospy.get_param('~log_path')
+        db_path = rospy.get_param('~db_path')
+
         self.path_to_package = rospack.get_path('hera_face')
-        self.yolo = YOLO(self.path_to_package + '/src/coco.pt')
+        self.yolo = YOLO(f'{self.path_to_package}{yolo_path}')
         self.bridge_object = CvBridge()
         rospy.loginfo("Start camera suscriber...")
-        self.topic = "/zed_node/right_raw/image_raw_color"
+
         self._check_cam_ready()
         self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
 
         self.center_place = None
         self.detector = dlib.get_frontal_face_detector()
-        self.sp = dlib.shape_predictor(os.path.join(self.path_to_package, "src/shape_predictor_5_face_landmarks.dat"))
-        self.model = dlib.face_recognition_model_v1(
-            os.path.join(self.path_to_package, "src/dlib_face_recognition_resnet_model_v1.dat"))
-        self.people_dir = os.path.join(self.path_to_package, 'face_images')
+        self.sp = dlib.shape_predictor(f'{self.path_to_package}{sp_path}')
+        self.model = dlib.face_recognition_model_v1(f'{self.path_to_package}{model_path}')
+        self.people_dir = f'{self.path_to_package}/{db_path}'
 
         self.pub_cmd_vel = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         rospy.loginfo("Finished FaceRecogniser Init process...Ready")
@@ -316,7 +322,7 @@ class FaceRecog:
 
         window = dlib.image_window()
         window.set_image(small_frame)
-        cv2.imwrite(self.path_to_package + '/face_recogs/recog.jpg', small_frame)
+        cv2.imwrite(self.path_to_package + self.log_path, small_frame)
 
         return len(img_detected)
 
