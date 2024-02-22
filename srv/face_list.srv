@@ -1,6 +1,5 @@
 string name
 ---
-string result
-float64 center
+string[] names
+float64[] centers
 int64 num
-float64 empty_place
