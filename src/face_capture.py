@@ -8,69 +8,54 @@ import cv2
 import dlib
 from cv_bridge import CvBridge, CvBridgeError
 
-
 class FaceCapture:
     def __init__(self):
         self.bridge_object = CvBridge()
-        self.topic = "/zed_node/left_raw/image_raw_color"
-        self.check_cam_ready()
+        self.topic = rospy.get_param('~camera_topic')
         self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
         self.service = rospy.Service('face_captures', face_capture, self.handler)
-        self.rate = rospy.Rate(5)
         self.rospack = rospkg.RosPack()
         self.path_to_package = self.rospack.get_path('hera_face')
-        rospy.loginfo("Finished FaceRecogniser Init process, ready to capture")
-
-    def check_cam_ready(self):
-        self.cam_image = None
-        while self.cam_image is None and not rospy.is_shutdown():
-            try:
-                self.cam_image = rospy.wait_for_message(self.topic, Image, timeout=1.0)
-                rospy.logdebug(f"Current {self.topic} READY=>{str(self.cam_image)}")
-            except:
-                rospy.logerr(f"Current {self.topic} not ready yet, retrying.")
+        rospy.loginfo("Finished FaceCapture Init process, ready to capture")
 
     def camera_callback(self, data):
+        """Stores the received camera image."""
         self.cam_image = data
 
     def capture(self, data, request):
+        """Attempts to capture a face from the provided image data."""
         try:
-            video_capture = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
+            cv_image = self.bridge_object.imgmsg_to_cv2(data, desired_encoding="bgr8")
         except CvBridgeError as e:
-            print(e)
+            rospy.logerr(e)
+            return False
 
-        small_frame = cv2.resize(video_capture, (0, 0), fx=1, fy=1)
-        image_path = os.path.join(self.path_to_package, 'face_images')
-        face_locations = dlib.get_frontal_face_detector()(small_frame, 1)
+        small_frame = cv2.resize(cv_image, (0, 0), fx=1, fy=1)
+        face_detector = dlib.get_frontal_face_detector()
+        face_locations = face_detector(small_frame, 1)
 
         if not face_locations:
             rospy.logwarn("No Faces found, please get closer...")
             return False
 
-        image_file_path = os.path.join(image_path, f"{request.name}.jpg")
-        write_status = cv2.imwrite(image_file_path, small_frame)
-
-        if write_status:
-            rospy.loginfo(f'Face {request.name} saved succeeded!')
-            rospy.loginfo(image_file_path)
-            return True
-
-        rospy.loginfo('Face not saved!')
-        return False
+        # Assumes saving the entire frame if a face is detected
+        image_path = os.path.join(self.path_to_package, 'face_images', f"{request.name}.jpg")
+        cv2.imwrite(image_path, small_frame)
+        rospy.loginfo(f'Face {request.name} saved at {image_path}')
+        return True
 
     def handler(self, request):
-        while True:
-            if self.capture(self.cam_image, request):
-                return True
-            self.rate.sleep()
+        """Handles face capture requests."""
+        if not self.cam_image:
+            rospy.logwarn("No image available.")
+            return False
 
-        cv2.destroyAllWindows()
-
+        result = self.capture(self.cam_image, request)
+        return result
 
 if __name__ == '__main__':
-    rospy.init_node('face_captures', log_level=rospy.INFO)
+    rospy.init_node('face_captures', anonymous=True)
     face_capturer = FaceCapture()
-
     try:
         rospy.spin()
     except rospy.ROSInterruptException:
