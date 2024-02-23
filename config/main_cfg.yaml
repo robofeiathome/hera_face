@@ -2,4 +2,4 @@ camera_topic: usb_cam/image_raw
 sp_path: /models/shape_predictor_5_face_landmarks.dat
 model_path: /models/dlib_face_recognition_resnet_model_v1.dat
 db_path: face_images
-log_path: /face_recogs
+log_path: face_recogs
