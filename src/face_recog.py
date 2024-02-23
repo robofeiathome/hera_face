@@ -8,6 +8,7 @@ from cv_bridge import CvBridge
 import dlib
 import numpy as np
 import fnmatch
+import cv2
 
 class FaceRecog:
     def __init__(self):
@@ -16,6 +17,7 @@ class FaceRecog:
 
         rospack = rospkg.RosPack()
         self.topic = rospy.get_param('~camera_topic')
+        self.log_path = rospy.get_param('~log_path')
         self.bridge = CvBridge()
         self.path_to_package = rospack.get_path('hera_face')
         self.init_model()
@@ -73,13 +75,40 @@ class FaceRecog:
                        if np.linalg.norm(known_encoding - encoding) <= 0.6]
             names.append(matches[0] if matches else "unknown")
         return names
+    
+    def draw_bounding_boxes(self, img, detections, names):
+        """
+        Desenha bounding boxes e nomes ao redor das faces detectadas.
+        """
+        for det, name in zip(detections, names):
+            left, top, right, bottom = det.left(), det.top(), det.right(), det.bottom()
+            cv2.rectangle(img, (left, top), (right, bottom), (0, 255, 0), 2)
+            cv2.putText(img, name, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+    def recognize_and_save(self, img):
+        """
+        Reconhece faces, desenha bounding boxes e salva a imagem.
+        """
+        num_faces, faces_encodings, centers = self.recognize(img)
+        names = self.find_matches(faces_encodings)
+
+        # Desenha as bounding boxes e os nomes na imagem
+        self.draw_bounding_boxes(img, self.detector(img, 1), names)
+
+        # Salva a imagem com bounding boxes
+        save_path = f'{self.path_to_package}/{self.log_path}/face_recog_{rospy.Time.now()}.jpg'
+        cv2.imwrite(save_path, img)
+        rospy.loginfo(f"Image saved to {save_path}")
+
+        return num_faces, names, centers
+
 
     def handler(self, request):
         if self.cam_image is None:
             return ['no image'], [0.0], 0
 
         cv_image = self.bridge.imgmsg_to_cv2(self.cam_image, "bgr8")
-        num_faces, faces_encodings, centers = self.recognize(cv_image)
+        num_faces, faces_encodings, centers = self.recognize_and_save(cv_image)
         names = self.find_matches(faces_encodings)
 
         if request.name != '': 
