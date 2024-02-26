@@ -53,7 +53,7 @@ class FaceRecog:
                 self.known_faces.append(np.array(face_descriptor))
                 self.known_names.append(file_name[:-4].lower())
 
-    def recognize(self, img):
+    def recognise(self, img):
         detections = self.detector(img, 1)
         faces_encodings = []
         centers = []
@@ -77,31 +77,22 @@ class FaceRecog:
         return names
     
     def draw_bounding_boxes(self, img, detections, names):
-        """
-        Desenha bounding boxes e nomes ao redor das faces detectadas.
-        """
         for det, name in zip(detections, names):
             left, top, right, bottom = det.left(), det.top(), det.right(), det.bottom()
             cv2.rectangle(img, (left, top), (right, bottom), (0, 255, 0), 2)
             cv2.putText(img, name, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
     def recognize_and_save(self, img):
-        """
-        Reconhece faces, desenha bounding boxes e salva a imagem.
-        """
-        num_faces, faces_encodings, centers = self.recognize(img)
+        num_faces, faces_encodings, centers = self.recognise(img)
         names = self.find_matches(faces_encodings)
 
-        # Desenha as bounding boxes e os nomes na imagem
         self.draw_bounding_boxes(img, self.detector(img, 1), names)
 
-        # Salva a imagem com bounding boxes
         save_path = f'{self.path_to_package}/{self.log_path}/face_recog_{rospy.Time.now()}.jpg'
         cv2.imwrite(save_path, img)
         rospy.loginfo(f"Image saved to {save_path}")
 
         return num_faces, names, centers
-
 
     def handler(self, request):
         if self.cam_image is None:
