@@ -21,6 +21,7 @@ class FaceRecog:
         self.bridge = CvBridge()
         self.path_to_package = rospack.get_path('hera_face')
         self.init_model()
+        self.erase_log()
 
         self.cam_image = None
         self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
@@ -36,6 +37,15 @@ class FaceRecog:
         self.model = dlib.face_recognition_model_v1(f'{self.path_to_package}{model_path}')
         self.people_dir = f'{self.path_to_package}/{db_path}'
         self.load_data()
+
+    def erase_log(self):
+        for file_name in os.listdir(f'{self.path_to_package}/{self.log_path}'):
+            file_path = os.path.join(f'{self.path_to_package}/{self.log_path}', file_name)
+            try:
+                if os.path.isfile(file_path):
+                    os.unlink(file_path)
+            except Exception as e:
+                print(e)
 
     def camera_callback(self, data):
         self.cam_image = data
@@ -73,16 +83,16 @@ class FaceRecog:
         for encoding in faces_encodings:
             matches = [name for name, known_encoding in zip(self.known_names, self.known_faces) 
                        if np.linalg.norm(known_encoding - encoding) <= 0.6]
-            names.append(matches[0] if matches else "unknown")
+            names.append(matches[0] if matches else "face")
         return names
-    
+     
     def draw_bounding_boxes(self, img, detections, names):
         for det, name in zip(detections, names):
             left, top, right, bottom = det.left(), det.top(), det.right(), det.bottom()
             cv2.rectangle(img, (left, top), (right, bottom), (0, 255, 0), 2)
             cv2.putText(img, name, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-    def recognize_and_save(self, img):
+    def recognise_and_save(self, img):
         num_faces, faces_encodings, centers = self.recognise(img)
         names = self.find_matches(faces_encodings)
 
@@ -99,8 +109,7 @@ class FaceRecog:
             return ['no image'], [0.0], 0
 
         cv_image = self.bridge.imgmsg_to_cv2(self.cam_image, "bgr8")
-        num_faces, faces_encodings, centers = self.recognize_and_save(cv_image)
-        names = self.find_matches(faces_encodings)
+        num_faces, names, centers = self.recognise_and_save(cv_image)
 
         if request.name != '': 
             if request.name in names:
