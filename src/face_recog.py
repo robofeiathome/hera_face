@@ -109,6 +109,7 @@ class FaceRecog:
             return ['no image'], [0.0], 0
 
         cv_image = self.bridge.imgmsg_to_cv2(self.cam_image, "bgr8")
+        self.load_data()
         num_faces, names, centers = self.recognise_and_save(cv_image)
 
         if request.name != '': 
