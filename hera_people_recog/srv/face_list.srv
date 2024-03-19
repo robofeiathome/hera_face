@@ -1,6 +1,0 @@
-string name
----
-string result
-float64 center
-int64 num
-float64 empty_place
