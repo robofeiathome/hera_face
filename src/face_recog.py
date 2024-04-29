@@ -107,18 +107,23 @@ class FaceRecog:
     def handler(self, request):
         if self.cam_image is None:
             return ['no image'], [0.0], 0
-
+        print("request: ", request.name)
         cv_image = self.bridge.imgmsg_to_cv2(self.cam_image, "bgr8")
         self.load_data()
         num_faces, names, centers = self.recognise_and_save(cv_image)
-
+        print("names: ", names)
+        print("centers: ", centers)
         if request.name != '': 
-            if request.name in names:
-                index = names.index(request.name)
+            request_name = request.name.lower()
+            if request_name in names:
+                index = names.index(request_name)
+                print("I will return the name in the request: ", request_name)
                 return [request.name], [centers[index]], num_faces
             else:
+                print("I will return an empty list, I did not find the name in the request.", request.name)
                 return [], [], num_faces
         else:
+            print("I will return the names and centers found in the image, was not indentified.")
             return names, centers, num_faces
 
 
