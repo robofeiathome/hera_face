@@ -67,22 +67,25 @@ class FaceRecog:
         detections = self.detector(img, 1)
         faces_encodings = []
         centers = []
+        axis = []
 
         for detection in detections:
             face_encoding = self.model.compute_face_descriptor(img, self.sp(img, detection))
             faces_encodings.append(face_encoding)
 
             center_x = (detection.left() + detection.right()) / 2
+            center_y = (detection.top() + detection.bottom()) / 2
             centers.append(center_x)
+            axis.append(center_y)
 
-        return len(detections), faces_encodings, centers
+        return len(detections), faces_encodings, centers, axis
 
 
     def find_matches(self, faces_encodings):
         names = []
         for encoding in faces_encodings:
             matches = [name for name, known_encoding in zip(self.known_names, self.known_faces) 
-                       if np.linalg.norm(known_encoding - encoding) <= 0.6]
+                       if np.linalg.norm(known_encoding - encoding) <= 0.5]
             names.append(matches[0] if matches else "face")
         return names
      
@@ -93,7 +96,7 @@ class FaceRecog:
             cv2.putText(img, name, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
     def recognise_and_save(self, img):
-        num_faces, faces_encodings, centers = self.recognise(img)
+        num_faces, faces_encodings, centers, axis = self.recognise(img)
         names = self.find_matches(faces_encodings)
 
         self.draw_bounding_boxes(img, self.detector(img, 1), names)
@@ -102,7 +105,7 @@ class FaceRecog:
         cv2.imwrite(save_path, img)
         rospy.loginfo(f"Image saved to {save_path}")
 
-        return num_faces, names, centers
+        return num_faces, names, centers, axis
 
     def handler(self, request):
         if self.cam_image is None:
@@ -110,21 +113,22 @@ class FaceRecog:
         print("request: ", request.name)
         cv_image = self.bridge.imgmsg_to_cv2(self.cam_image, "bgr8")
         self.load_data()
-        num_faces, names, centers = self.recognise_and_save(cv_image)
+        num_faces, names, centers, axis = self.recognise_and_save(cv_image)
         print("names: ", names)
         print("centers: ", centers)
+        print("axis: ", axis)
         if request.name != '': 
             request_name = request.name.lower()
             if request_name in names:
                 index = names.index(request_name)
                 print("I will return the name in the request: ", request_name)
-                return [request.name], [centers[index]], num_faces
+                return [request.name], [centers[index]], num_faces, [axis[index]]
             else:
                 print("I will return an empty list, I did not find the name in the request.", request.name)
                 return [], [], num_faces
         else:
             print("I will return the names and centers found in the image, was not indentified.")
-            return names, centers, num_faces
+            return names, centers, num_faces, axis
 
 
 if __name__ == '__main__':
