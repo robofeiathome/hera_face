@@ -97,6 +97,7 @@ class FaceRecog:
 
     def recognise_and_save(self, img):
         num_faces, faces_encodings, centers, axis = self.recognise(img)
+
         names = self.find_matches(faces_encodings)
 
         self.draw_bounding_boxes(img, self.detector(img, 1), names)
@@ -122,13 +123,14 @@ class FaceRecog:
             if request_name in names:
                 index = names.index(request_name)
                 print("I will return the name in the request: ", request_name)
-                return [request.name], [centers[index]], num_faces, [axis[index]]
+                print([axis[index]], axis[index])
+                return [request.name], [centers[index]], [axis[index]], num_faces 
             else:
                 print("I will return an empty list, I did not find the name in the request.", request.name)
-                return [], [], num_faces
+                return [], [], [], num_faces
         else:
             print("I will return the names and centers found in the image, was not indentified.")
-            return names, centers, num_faces, axis
+            return names, centers, axis, sum_faces
 
 
 if __name__ == '__main__':
